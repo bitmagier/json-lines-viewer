@@ -1,8 +1,7 @@
 use crate::props::Props;
 use crate::raw_json_lines::RawJsonLines;
-use ratatui::prelude::{Color, Line, Size, Span, Style, Stylize, Text};
-use ratatui::widgets::{Block, List, ListState};
-use ratatui::Frame;
+use ratatui::prelude::{Color, Line, Size, Span, Stylize};
+use ratatui::widgets::{ListItem, ListState};
 use serde_json::{Map, Value};
 use std::cell::RefCell;
 use std::cmp;
@@ -14,11 +13,12 @@ pub struct Model<'a> {
     pub props: Props,
     pub main_window_list_state: ListState,
     pub terminal_size: Size,
-    max_num_printable_fields: RefCell<usize>,
+    // returns true for lines to be displayed
+    pub json_line_filter: fn(&Map<String, Value>) -> bool,
+    num_fields_high_water_mark: RefCell<usize>,
     line_view_field_offset: usize,
     last_action_result: String
 }
-
 
 #[derive(Clone, Default, Eq, PartialEq)]
 pub enum Screen {
@@ -54,7 +54,8 @@ impl<'a> Model<'a> {
                 ListState::default().with_selected(Some(0))
             },
             terminal_size,
-            max_num_printable_fields: RefCell::new(0), // gets updated before the first usage
+            json_line_filter: |_| true,
+            num_fields_high_water_mark: RefCell::new(0), // gets updated before the first usage
             line_view_field_offset: 0,
             last_action_result: String::new(),
         }
@@ -114,7 +115,7 @@ impl<'a> Model<'a> {
                     (self, None)
                 }
                 Message::ScrollRight => {
-                    if self.line_view_field_offset + 1 < *self.max_num_printable_fields.borrow() {
+                    if self.line_view_field_offset + 1 < *self.num_fields_high_water_mark.borrow() {
                         self.line_view_field_offset += 1;
                     }
                     (self, None)
@@ -149,7 +150,7 @@ impl<'a> Model<'a> {
         }
     }
 
-    // returns lines and max number of displayed fields
+/*        // returns lines and the largest number of displayed fields
     pub fn render_json_lines(&self) -> Vec<Text> {
         let mut lines = vec![];
         let mut max_num_displayed_fields = 0_usize;
@@ -166,17 +167,16 @@ impl<'a> Model<'a> {
         }
         *self.max_num_printable_fields.borrow_mut() = max_num_displayed_fields;
         lines.into_iter().map(Text::from).collect()
-    }
+    }*/
 
-    // returns the line and the number of displayed fields
-    fn render_json_line(&self, m: Map<String, Value>) -> (Line, usize) {
+    fn render_json_line(&self, m: Map<String, Value>) -> Line {
         fn render_property(line: &mut Line, k: &str, v: &Value) {
             if line.iter().len() > 0 {
                 line.push_span(Span::styled(", ", Color::Gray));
             }
             line.push_span(Span::styled(k.to_string(), Color::Green));
             line.push_span(":".dark_gray());
-            line.push_span(format!("{}", v).gray());
+            line.push_span(format!("{v}").gray());
         }
 
         let mut line = Line::default();
@@ -198,7 +198,11 @@ impl<'a> Model<'a> {
                 num_fields += 1;
             }
         }
-        (line, num_fields)
+
+        if num_fields > *self.num_fields_high_water_mark .borrow() {
+            self.num_fields_high_water_mark.replace(num_fields);
+        }
+        line
     }
 
     pub fn render_main_screen_status_line_left(&self) -> String {
@@ -216,25 +220,55 @@ impl<'a> Model<'a> {
     }
 }
 
-pub fn view(model: &mut Model, frame: &mut Frame) {
-    let mut main_window_list_state = model.main_window_list_state.clone();
 
-    match model.active_screen {
-        Screen::Done => (),
-        Screen::Main => {
-            let lines = model.render_json_lines();
-            let list = List::new(lines)
-                .block(Block::bordered()
-                    .title_bottom(Line::from(model.render_main_screen_status_line_left()).left_aligned())
-                    .title_bottom(Line::from(model.render_main_screen_status_line_right()).right_aligned())
-                )
-                .highlight_style(Style::new().underlined())
-                .highlight_symbol("> ")
-                .scroll_padding(1);
-            frame.render_stateful_widget(list, frame.area(), &mut main_window_list_state)
+pub struct ModelIntoIter<'a> {
+    model: &'a Model<'a>,
+    index: usize
+}
+
+impl<'a> IntoIterator for &'a Model<'_> {
+    type Item = ListItem<'a>;
+    type IntoIter = ModelIntoIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ModelIntoIter {
+            model: self,
+            index: 0,
         }
-        Screen::LineDetails => todo!(), // frame.render_widget(DetailScreenWidget::new(), frame.area()),
+    }
+}
+
+impl<'a> Iterator for ModelIntoIter<'a> {
+    type Item = ListItem<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.model.raw_json_lines.lines.len() {
+            None
+        } else {
+            let raw_line = &self.model.raw_json_lines.lines[self.index];
+            match serde_json::from_str(&raw_line.content).expect("invalid json") {
+                Value::Object(o) => {
+                    match (self.model.json_line_filter)(&o) {
+                        false => {
+                            self.index += 1;
+                            self.next()
+                        },
+                        true => {
+                            let line = self.model.render_json_line(o);
+                            self.index += 1;
+                            Some(ListItem::new(line))
+                        }
+                    }
+                }
+                v => {
+                    self.index += 1;
+                    Some(ListItem::new(Line::from(format!("{v}"))))
+                },
+            }
+        }
     }
 
-    model.update_state(main_window_list_state);
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.model.raw_json_lines.lines.len() - self.index))
+    }
 }

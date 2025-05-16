@@ -10,6 +10,9 @@ use std::fs::File;
 use std::io;
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
+use ratatui::Frame;
+use ratatui::prelude::{Line, Style, Stylize};
+use ratatui::widgets::{Block, List, ListState};
 use crate::raw_json_lines::{RawJsonLines, SourceName};
 
 #[derive(Parser, Debug)]
@@ -30,7 +33,7 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let props: Props = init_props(&args)?;
     
-    let lines = load(&args.files)?;
+    let lines = load_files(&args.files)?;
 
     tui::install_panic_hook();
     let mut terminal = tui::init_terminal()?;
@@ -39,7 +42,7 @@ fn main() -> anyhow::Result<()> {
     
     while model.active_screen != Screen::Done {
         // Render the current view
-        terminal.draw(|f| model::view(&mut model, f))?;
+        terminal.draw(|f| view(&mut model, f))?;
 
         // Handle events and map to a Message
         let mut current_msg = event::handle_event(&model)?;
@@ -68,9 +71,9 @@ fn init_props(args: &Args) -> anyhow::Result<Props> {
 }
 
 
-fn load(files: &[PathBuf]) -> anyhow::Result<RawJsonLines>
+fn load_files(files: &[PathBuf]) -> anyhow::Result<RawJsonLines>
 {
-    let mut raw_lines = RawJsonLines::new();
+    let mut raw_lines = RawJsonLines::default();
     for f in files {
         let path = PathBuf::from(f);
         match path.extension().map(|e| e.to_str()) {
@@ -88,7 +91,7 @@ fn load_lines_from_json(raw_lines: &mut RawJsonLines, path: &Path) -> anyhow::Re
     for (line_nr, line) in io::BufReader::new(File::open(path)?).lines().enumerate() {
         raw_lines.push(
             SourceName::JsonFile(path.to_path_buf()),
-            line_nr,
+            line_nr + 1,
             line?
         );
     }
@@ -106,7 +109,7 @@ fn load_lines_from_zip(raw_lines: &mut RawJsonLines, path: &Path) -> anyhow::Res
             for (line_nr, line) in io::BufReader::new(f).lines().enumerate() {
                 raw_lines.push(
                     SourceName::JsonInZip { zip_file: path.to_path_buf(), json_file: json_file.clone() },
-                    line_nr,
+                    line_nr + 1,
                     line?
                 );
             }
@@ -114,6 +117,34 @@ fn load_lines_from_zip(raw_lines: &mut RawJsonLines, path: &Path) -> anyhow::Res
     }
     Ok(())
 }
+
+
+pub fn view(model: &mut Model, frame: &mut Frame) {
+    let mut main_window_list_state = model.main_window_list_state.clone();
+
+    match model.active_screen {
+        Screen::Done => (),
+        Screen::Main => {
+            render_main_screen(model, frame, &mut main_window_list_state);
+        }
+        Screen::LineDetails => todo!(), // frame.render_widget(DetailScreenWidget::new(), frame.area()),
+    }
+
+    model.update_state(main_window_list_state);
+}
+
+fn render_main_screen(model: &Model, frame: &mut Frame, list_state: &mut ListState) {
+    let list = List::new(model)
+        .block(Block::bordered()
+            .title_bottom(Line::from(model.render_main_screen_status_line_left()).left_aligned())
+            .title_bottom(Line::from(model.render_main_screen_status_line_right()).right_aligned())
+        )
+        .highlight_style(Style::new().underlined())
+        .highlight_symbol("> ")
+        .scroll_padding(1);
+    frame.render_stateful_widget(list, frame.area(), list_state)
+}
+
 
 mod tui {
     use ratatui::{
@@ -151,9 +182,10 @@ mod tui {
     }
 }
 
-// TODO feature: sort lines by certain field values
+// TODO implement line detail screen
 // TODO feature: filter displayed lines by text / regexp search string
 // TODO feature: highlight lines by text / regexp search string
-// TODO feature: highlight certain field-values
+// TODO feature: possibility to sort lines by one or more field values
 // TODO feature: Use Memory Mapped Files for RawJsonLines
 // TODO feature: render only the visible lines
+// TODO maybe feature: highlight certain field-values
