@@ -27,7 +27,7 @@ impl RawJsonLines {
         })
     }
     
-    fn source_name(&self, source_id: usize) -> Option<&SourceName> {
+    pub fn source_name(&self, source_id: usize) -> Option<&SourceName> {
         self.sources.get(&source_id)
     }
 

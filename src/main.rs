@@ -151,8 +151,7 @@ mod tui {
     }
 }
 
-// TODO feature: add status line on bottom (List-border-bottom-title) (source file name, Line Nr, last action result)
-// TODO feature: sort lines by 1..n field values
+// TODO feature: sort lines by certain field values
 // TODO feature: filter displayed lines by text / regexp search string
 // TODO feature: highlight lines by text / regexp search string
 // TODO feature: highlight certain field-values

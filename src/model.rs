@@ -16,7 +16,9 @@ pub struct Model<'a> {
     pub terminal_size: Size,
     max_num_printable_fields: RefCell<usize>,
     line_view_field_offset: usize,
+    last_action_result: String
 }
+
 
 #[derive(Clone, Default, Eq, PartialEq)]
 pub enum Screen {
@@ -54,41 +56,55 @@ impl<'a> Model<'a> {
             terminal_size,
             max_num_printable_fields: RefCell::new(0), // gets updated before the first usage
             line_view_field_offset: 0,
+            last_action_result: String::new(),
         }
     }
 
-    pub fn update_view_state(&mut self, main_window_list_state: ListState) {
+    pub fn update_state(&mut self, main_window_list_state: ListState) {
         self.main_window_list_state = main_window_list_state
     }
 
     pub fn updated(mut self, msg: Message) -> (Model<'a>, Option<Message>) {
+        self.last_action_result.clear();
         match self.active_screen {
             Screen::Done => (self, None),
             Screen::Main => match msg {
+                // we need exact instant calculation of the ListState (and cannot rely on lazy corrections e.g. after `ListState::scroll_up_by`),
+                // because the pos is used in other render methods
                 Message::First => {
                     self.main_window_list_state.select_first();
                     (self, None)
                 }
                 Message::Last => {
-                    self.main_window_list_state.select_last();
+                    self.main_window_list_state.select(Some(cmp::min(self.raw_json_lines.lines.len() as isize - 1, 0) as usize));
                     (self, None)
                 }
                 Message::ScrollUp => {
-                    self.main_window_list_state.select_previous();
+                    if let Some(pos) = self.main_window_list_state.selected() {
+                        self.main_window_list_state.select(Some(cmp::max(pos as isize - 1, 0) as usize));
+                    }
                     (self, None)
                 }
                 Message::ScrollDown => {
-                    self.main_window_list_state.select_next();
+                    if let Some(pos) = self.main_window_list_state.selected() {
+                        self.main_window_list_state.select(Some(cmp::min(pos as isize + 1, self.raw_json_lines.lines.len() as isize - 1) as usize));
+                    }
                     (self, None)
                 }
                 Message::PageUp => {
-                    self.main_window_list_state
-                        .scroll_up_by(self.terminal_size.height - 2);
+                    if let Some(pos) = self.main_window_list_state.selected() {
+                        self.main_window_list_state.select(Some(
+                            cmp::max(pos as isize - self.terminal_size.height as isize - 2, 0) as usize
+                        ))
+                    }
                     (self, None)
                 }
                 Message::PageDown => {
-                    self.main_window_list_state
-                        .scroll_down_by(self.terminal_size.height - 2);
+                    if let Some(pos) = self.main_window_list_state.selected() {
+                        self.main_window_list_state.select(Some(
+                            cmp::min(pos as isize + self.terminal_size.height as isize - 2, self.raw_json_lines.lines.len() as isize - 1) as usize
+                        ))
+                    }
                     (self, None)
                 }
                 Message::ScrollLeft => {
@@ -112,7 +128,10 @@ impl<'a> Model<'a> {
                     (self, None)
                 }
                 Message::SaveSettings => {
-                    self.props.save().expect("failed to save settings");
+                    self.last_action_result = match self.props.save() {
+                        Ok(_) => "Ok: settings saved".to_string(),
+                        Err(_) => "Error: failed to save settings".to_string()
+                    };
                     (self, None)
                 }
                 Message::Resized(size) => {
@@ -181,6 +200,20 @@ impl<'a> Model<'a> {
         }
         (line, num_fields)
     }
+
+    pub fn render_main_screen_status_line_left(&self) -> String {
+        match self.main_window_list_state.selected() {
+            None => String::new(),
+            Some(line_nr) => {
+                let raw_line = &self.raw_json_lines.lines[line_nr];
+                let source_name = self.raw_json_lines.source_name(raw_line.source_id).expect("invalid source id");
+                format!("{}:{}", source_name, raw_line.line_nr)
+            }
+        }
+    }
+    pub fn render_main_screen_status_line_right(&self) -> String {
+        self.last_action_result.clone()
+    }
 }
 
 pub fn view(model: &mut Model, frame: &mut Frame) {
@@ -191,7 +224,10 @@ pub fn view(model: &mut Model, frame: &mut Frame) {
         Screen::Main => {
             let lines = model.render_json_lines();
             let list = List::new(lines)
-                .block(Block::bordered())
+                .block(Block::bordered()
+                    .title_bottom(Line::from(model.render_main_screen_status_line_left()).left_aligned())
+                    .title_bottom(Line::from(model.render_main_screen_status_line_right()).right_aligned())
+                )
                 .highlight_style(Style::new().underlined())
                 .highlight_symbol("> ")
                 .scroll_padding(1);
@@ -200,5 +236,5 @@ pub fn view(model: &mut Model, frame: &mut Frame) {
         Screen::LineDetails => todo!(), // frame.render_widget(DetailScreenWidget::new(), frame.area()),
     }
 
-    model.update_view_state(main_window_list_state);
+    model.update_state(main_window_list_state);
 }

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "JSON Lines Viewer - Terminal-UI to view comprehensive application logs in 'Json line format' or Zip files containing such files"
 authors = ["Roman Krüger"]
-keywords = ["TUI", "Json", "viewer"]
+keywords = ["Json", "viewer", "TUI"]
 
 [dependencies]
 ratatui = "0.29"
