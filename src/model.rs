@@ -5,7 +5,6 @@ use ratatui::widgets::{ListItem, ListState};
 use serde_json::{Map, Value};
 use std::cell::RefCell;
 use std::cmp;
-
 #[derive(Clone)]
 pub struct Model<'a> {
     pub active_screen: Screen,
