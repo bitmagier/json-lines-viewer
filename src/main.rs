@@ -1,20 +1,20 @@
-mod model;
 mod event;
+mod model;
 mod props;
 mod raw_json_lines;
 mod tui;
 
 use crate::model::{Model, Screen};
 use crate::props::Props;
+use crate::raw_json_lines::{RawJsonLines, SourceName};
 use clap::Parser;
+use ratatui::prelude::{Line, Style, Stylize};
+use ratatui::widgets::{Block, List, ListState};
+use ratatui::Frame;
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
-use ratatui::Frame;
-use ratatui::prelude::{Line, Style, Stylize};
-use ratatui::widgets::{Block, List, ListState};
-use crate::raw_json_lines::{RawJsonLines, SourceName};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -27,20 +27,20 @@ struct Args {
 
     /// suppressed fields - separated by comma
     #[arg(short, long)]
-    suppressed_fields: Option<Vec<String>>
+    suppressed_fields: Option<Vec<String>>,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     let props: Props = init_props(&args)?;
-    
+
     let lines = load_files(&args.files)?;
 
     tui::install_panic_hook();
     let mut terminal = tui::init_terminal()?;
-    
+
     let mut model = Model::new(props, terminal.size()?, &lines);
-    
+
     while model.active_screen != Screen::Done {
         // Render the current view
         terminal.draw(|f| tui::view(&mut model, f))?;
@@ -71,9 +71,7 @@ fn init_props(args: &Args) -> anyhow::Result<Props> {
     Ok(props)
 }
 
-
-fn load_files(files: &[PathBuf]) -> anyhow::Result<RawJsonLines>
-{
+fn load_files(files: &[PathBuf]) -> anyhow::Result<RawJsonLines> {
     let mut raw_lines = RawJsonLines::default();
     for f in files {
         let path = PathBuf::from(f);
@@ -87,19 +85,20 @@ fn load_files(files: &[PathBuf]) -> anyhow::Result<RawJsonLines>
     Ok(raw_lines)
 }
 
-
-fn load_lines_from_json(raw_lines: &mut RawJsonLines, path: &Path) -> anyhow::Result<()> {
+fn load_lines_from_json(
+    raw_lines: &mut RawJsonLines,
+    path: &Path,
+) -> anyhow::Result<()> {
     for (line_nr, line) in io::BufReader::new(File::open(path)?).lines().enumerate() {
-        raw_lines.push(
-            SourceName::JsonFile(path.to_path_buf()),
-            line_nr + 1,
-            line?
-        );
+        raw_lines.push(SourceName::JsonFile(path.to_path_buf()), line_nr + 1, line?);
     }
     Ok(())
 }
 
-fn load_lines_from_zip(raw_lines: &mut RawJsonLines, path: &Path) -> anyhow::Result<()> {
+fn load_lines_from_zip(
+    raw_lines: &mut RawJsonLines,
+    path: &Path,
+) -> anyhow::Result<()> {
     let zip_file = File::open(path)?;
     let mut archive = zip::ZipArchive::new(zip_file)?;
 
@@ -109,9 +108,12 @@ fn load_lines_from_zip(raw_lines: &mut RawJsonLines, path: &Path) -> anyhow::Res
             let json_file = f.name().to_string();
             for (line_nr, line) in io::BufReader::new(f).lines().enumerate() {
                 raw_lines.push(
-                    SourceName::JsonInZip { zip_file: path.to_path_buf(), json_file: json_file.clone() },
+                    SourceName::JsonInZip {
+                        zip_file: path.to_path_buf(),
+                        json_file: json_file.clone(),
+                    },
                     line_nr + 1,
-                    line?
+                    line?,
                 );
             }
         }
@@ -119,12 +121,16 @@ fn load_lines_from_zip(raw_lines: &mut RawJsonLines, path: &Path) -> anyhow::Res
     Ok(())
 }
 
-
-fn render_main_screen(model: &Model, frame: &mut Frame, list_state: &mut ListState) {
+fn render_main_screen(
+    model: &Model,
+    frame: &mut Frame,
+    list_state: &mut ListState,
+) {
     let list = List::new(model)
-        .block(Block::bordered()
-            .title_bottom(Line::from(model.render_main_screen_status_line_left()).left_aligned())
-            .title_bottom(Line::from(model.render_main_screen_status_line_right()).right_aligned())
+        .block(
+            Block::bordered()
+                .title_bottom(Line::from(model.render_main_screen_status_line_left()).left_aligned())
+                .title_bottom(Line::from(model.render_main_screen_status_line_right()).right_aligned()),
         )
         .highlight_style(Style::new().underlined())
         .highlight_symbol("> ")
@@ -132,12 +138,12 @@ fn render_main_screen(model: &Model, frame: &mut Frame, list_state: &mut ListSta
     frame.render_stateful_widget(list, frame.area(), list_state)
 }
 
-
-// TODO implement line detail screen
+// TODO implement line detail screen for long messages (stack traces, etc)
+// TODO feature: filter displayed lines by certain field values / regexp (e.g. "level=ERROR")
 // TODO implement settings screen
-// TODO feature: filter displayed lines by text / regexp search string
-// TODO feature: highlight lines by text / regexp search string
-// TODO feature: possibility to sort lines by one or more field values
-// TODO feature: Use Memory Mapped Files for RawJsonLines
-// TODO feature: render only the visible lines
+// TODO feature: search including jump to NEXT and PREVIOUS hit
+// TODO maybe feature: highlight lines by text / regexp search string
+// TODO maybe feature: minimize rendering effort of large files by rendering only exactly the visible lines (not the ones before like currently via the iterator approach)
+// TODO maybe feature: Use Memory Mapped Files for RawJsonLines
+// TODO maybe feature: possibility to sort lines by one or more field values
 // TODO maybe feature: highlight certain field-values

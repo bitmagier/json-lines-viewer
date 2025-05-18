@@ -1,6 +1,6 @@
-use std::path::PathBuf;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct Props {
@@ -15,13 +15,10 @@ impl Props {
 
     pub fn init() -> anyhow::Result<Props> {
         match &Self::config_file_path() {
-            Some(f) if f.exists() => Ok(
-                toml::from_str(
-                    &std::fs::read_to_string(f)
-                    .map_err(|e| anyhow!("'{}' - while reading file {}", e, f.to_string_lossy()))?
-                )?
-            ),
-            _ => Ok(Props::default())
+            Some(f) if f.exists() => Ok(toml::from_str(
+                &std::fs::read_to_string(f).map_err(|e| anyhow!("'{}' - while reading file {}", e, f.to_string_lossy()))?,
+            )?),
+            _ => Ok(Props::default()),
         }
     }
 
@@ -35,4 +32,3 @@ impl Props {
         }
     }
 }
-

@@ -16,7 +16,7 @@ pub struct Model<'a> {
     pub json_line_filter: fn(&Map<String, Value>) -> bool,
     num_fields_high_water_mark: RefCell<usize>,
     line_view_field_offset: usize,
-    last_action_result: String
+    last_action_result: String,
 }
 
 #[derive(Clone, Default, Eq, PartialEq)]
@@ -42,7 +42,11 @@ pub enum Message {
 }
 
 impl<'a> Model<'a> {
-    pub fn new(props: Props, terminal_size: Size, raw_json_lines: &'a RawJsonLines) -> Self {
+    pub fn new(
+        props: Props,
+        terminal_size: Size,
+        raw_json_lines: &'a RawJsonLines,
+    ) -> Self {
         Self {
             active_screen: Default::default(),
             raw_json_lines,
@@ -60,11 +64,17 @@ impl<'a> Model<'a> {
         }
     }
 
-    pub fn update_state(&mut self, main_window_list_state: ListState) {
+    pub fn update_state(
+        &mut self,
+        main_window_list_state: ListState,
+    ) {
         self.main_window_list_state = main_window_list_state
     }
 
-    pub fn updated(mut self, msg: Message) -> (Model<'a>, Option<Message>) {
+    pub fn updated(
+        mut self,
+        msg: Message,
+    ) -> (Model<'a>, Option<Message>) {
         self.last_action_result.clear();
         match self.active_screen {
             Screen::Done => (self, None),
@@ -76,7 +86,8 @@ impl<'a> Model<'a> {
                     (self, None)
                 }
                 Message::Last => {
-                    self.main_window_list_state.select(Some(cmp::min(self.raw_json_lines.lines.len() as isize - 1, 0) as usize));
+                    self.main_window_list_state
+                        .select(Some(cmp::min(self.raw_json_lines.lines.len() as isize - 1, 0) as usize));
                     (self, None)
                 }
                 Message::ScrollUp => {
@@ -87,23 +98,25 @@ impl<'a> Model<'a> {
                 }
                 Message::ScrollDown => {
                     if let Some(pos) = self.main_window_list_state.selected() {
-                        self.main_window_list_state.select(Some(cmp::min(pos as isize + 1, self.raw_json_lines.lines.len() as isize - 1) as usize));
+                        self.main_window_list_state.select(Some(
+                            cmp::min(pos as isize + 1, self.raw_json_lines.lines.len() as isize - 1) as usize
+                        ));
                     }
                     (self, None)
                 }
                 Message::PageUp => {
                     if let Some(pos) = self.main_window_list_state.selected() {
-                        self.main_window_list_state.select(Some(
-                            cmp::max(pos as isize - self.terminal_size.height as isize - 2, 0) as usize
-                        ))
+                        self.main_window_list_state
+                            .select(Some(cmp::max(pos as isize - self.terminal_size.height as isize - 2, 0) as usize))
                     }
                     (self, None)
                 }
                 Message::PageDown => {
                     if let Some(pos) = self.main_window_list_state.selected() {
-                        self.main_window_list_state.select(Some(
-                            cmp::min(pos as isize + self.terminal_size.height as isize - 2, self.raw_json_lines.lines.len() as isize - 1) as usize
-                        ))
+                        self.main_window_list_state.select(Some(cmp::min(
+                            pos as isize + self.terminal_size.height as isize - 2,
+                            self.raw_json_lines.lines.len() as isize - 1,
+                        ) as usize))
                     }
                     (self, None)
                 }
@@ -130,7 +143,7 @@ impl<'a> Model<'a> {
                 Message::SaveSettings => {
                     self.last_action_result = match self.props.save() {
                         Ok(_) => "Ok: settings saved".to_string(),
-                        Err(_) => "Error: failed to save settings".to_string()
+                        Err(_) => "Error: failed to save settings".to_string(),
                     };
                     (self, None)
                 }
@@ -149,27 +162,15 @@ impl<'a> Model<'a> {
         }
     }
 
-/*        // returns lines and the largest number of displayed fields
-    pub fn render_json_lines(&self) -> Vec<Text> {
-        let mut lines = vec![];
-        let mut max_num_displayed_fields = 0_usize;
-        for line in &self.raw_json_lines.lines {
-            let v: Value = serde_json::from_str(&line.content).expect("invalid json");
-            match v {
-                Value::Object(o) => {
-                    let (line, num_fields) = self.render_json_line(o);
-                    lines.push(line);
-                    max_num_displayed_fields = cmp::max(max_num_displayed_fields, num_fields)
-                }
-                _ => lines.push(Line::from(format!("{}", v))),
-            }
-        }
-        *self.max_num_printable_fields.borrow_mut() = max_num_displayed_fields;
-        lines.into_iter().map(Text::from).collect()
-    }*/
-
-    fn render_json_line(&self, m: Map<String, Value>) -> Line {
-        fn render_property(line: &mut Line, k: &str, v: &Value) {
+    fn render_json_line(
+        &self,
+        m: Map<String, Value>,
+    ) -> Line {
+        fn render_property(
+            line: &mut Line,
+            k: &str,
+            v: &Value,
+        ) {
             if line.iter().len() > 0 {
                 line.push_span(Span::styled(", ", Color::Gray));
             }
@@ -198,7 +199,7 @@ impl<'a> Model<'a> {
             }
         }
 
-        if num_fields > *self.num_fields_high_water_mark .borrow() {
+        if num_fields > *self.num_fields_high_water_mark.borrow() {
             self.num_fields_high_water_mark.replace(num_fields);
         }
         line
@@ -219,10 +220,9 @@ impl<'a> Model<'a> {
     }
 }
 
-
 pub struct ModelIntoIter<'a> {
     model: &'a Model<'a>,
-    index: usize
+    index: usize,
 }
 
 impl<'a> IntoIterator for &'a Model<'_> {
@@ -230,10 +230,7 @@ impl<'a> IntoIterator for &'a Model<'_> {
     type IntoIter = ModelIntoIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        ModelIntoIter {
-            model: self,
-            index: 0,
-        }
+        ModelIntoIter { model: self, index: 0 }
     }
 }
 
@@ -246,23 +243,21 @@ impl<'a> Iterator for ModelIntoIter<'a> {
         } else {
             let raw_line = &self.model.raw_json_lines.lines[self.index];
             match serde_json::from_str(&raw_line.content).expect("invalid json") {
-                Value::Object(o) => {
-                    match (self.model.json_line_filter)(&o) {
-                        false => {
-                            self.index += 1;
-                            self.next()
-                        },
-                        true => {
-                            let line = self.model.render_json_line(o);
-                            self.index += 1;
-                            Some(ListItem::new(line))
-                        }
+                Value::Object(o) => match (self.model.json_line_filter)(&o) {
+                    false => {
+                        self.index += 1;
+                        self.next()
                     }
-                }
+                    true => {
+                        let line = self.model.render_json_line(o);
+                        self.index += 1;
+                        Some(ListItem::new(line))
+                    }
+                },
                 v => {
                     self.index += 1;
                     Some(ListItem::new(Line::from(format!("{v}"))))
-                },
+                }
             }
         }
     }
