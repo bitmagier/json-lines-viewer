@@ -13,13 +13,26 @@ pub struct Model<'a> {
     pub raw_json_lines: &'a RawJsonLines,
     pub raw_json_line_visibility_cache: RefCell<Vec<Option<bool>>>,
     pub props: Props,
-    pub main_window_list_state: ListState,
+    pub view_state: ModelViewState,
     pub terminal_size: Size,
     // shall return true for lines to be displayed
     json_line_filter: fn(&serde_json::Value) -> bool,
     num_fields_high_water_mark: Cell<usize>,
     line_view_field_offset: usize,
     last_action_result: String,
+}
+
+#[derive(Clone)]
+pub struct ModelViewState {
+    pub main_window_list_state: ListState,
+    // pub line_details_list_state: ListState,
+}
+impl Default for ModelViewState {
+    fn default() -> Self {
+        ModelViewState {
+            main_window_list_state: ListState::default().with_selected(Some(0)),
+        }
+    }
 }
 
 #[derive(Clone, Default, Eq, PartialEq)]
@@ -55,11 +68,7 @@ impl<'a> Model<'a> {
             raw_json_lines,
             raw_json_line_visibility_cache: RefCell::new(vec![None; raw_json_lines.lines.len()]),
             props,
-            main_window_list_state: if raw_json_lines.is_empty() {
-                ListState::default()
-            } else {
-                ListState::default().with_selected(Some(0))
-            },
+            view_state: Default::default(),
             terminal_size,
             json_line_filter: |_| true,
             num_fields_high_water_mark: Cell::new(0), // gets updated before the first usage
@@ -76,13 +85,6 @@ impl<'a> Model<'a> {
         self.raw_json_line_visibility_cache = RefCell::new(vec![None; self.raw_json_lines.lines.len()]);
     }
 
-    pub fn update_state(
-        &mut self,
-        main_window_list_state: ListState,
-    ) {
-        self.main_window_list_state = main_window_list_state
-    }
-
     pub fn updated(
         mut self,
         msg: Message,
@@ -94,38 +96,38 @@ impl<'a> Model<'a> {
                 // we need exact instant calculation of the ListState (and cannot rely on lazy corrections e.g. after `ListState::scroll_up_by`),
                 // because the pos is used in other render methods
                 Message::First => {
-                    self.main_window_list_state.select_first();
+                    self.view_state.main_window_list_state.select_first();
                     (self, None)
                 }
                 Message::Last => {
-                    self.main_window_list_state
+                    self.view_state.main_window_list_state
                         .select(Some(cmp::min(self.raw_json_lines.lines.len() as isize - 1, 0) as usize));
                     (self, None)
                 }
                 Message::ScrollUp => {
-                    if let Some(pos) = self.main_window_list_state.selected() {
-                        self.main_window_list_state.select(Some(cmp::max(pos as isize - 1, 0) as usize));
+                    if let Some(pos) = self.view_state.main_window_list_state.selected() {
+                        self.view_state.main_window_list_state.select(Some(cmp::max(pos as isize - 1, 0) as usize));
                     }
                     (self, None)
                 }
                 Message::ScrollDown => {
-                    if let Some(pos) = self.main_window_list_state.selected() {
-                        self.main_window_list_state.select(Some(
+                    if let Some(pos) = self.view_state.main_window_list_state.selected() {
+                        self.view_state.main_window_list_state.select(Some(
                             cmp::min(pos as isize + 1, self.raw_json_lines.lines.len() as isize - 1) as usize
                         ));
                     }
                     (self, None)
                 }
                 Message::PageUp => {
-                    if let Some(pos) = self.main_window_list_state.selected() {
-                        self.main_window_list_state
+                    if let Some(pos) = self.view_state.main_window_list_state.selected() {
+                        self.view_state.main_window_list_state
                             .select(Some(cmp::max(pos as isize - self.terminal_size.height as isize - 2, 0) as usize))
                     }
                     (self, None)
                 }
                 Message::PageDown => {
-                    if let Some(pos) = self.main_window_list_state.selected() {
-                        self.main_window_list_state.select(Some(cmp::min(
+                    if let Some(pos) = self.view_state.main_window_list_state.selected() {
+                        self.view_state.main_window_list_state.select(Some(cmp::min(
                             pos as isize + self.terminal_size.height as isize - 2,
                             self.raw_json_lines.lines.len() as isize - 1,
                         ) as usize))
@@ -145,7 +147,9 @@ impl<'a> Model<'a> {
                     (self, None)
                 }
                 Message::Enter => {
-                    self.active_screen = Screen::LineDetails;
+                    if self.view_state.main_window_list_state.selected().is_some() {
+                        self.active_screen = Screen::LineDetails;
+                    }
                     (self, None)
                 }
                 Message::Exit => {
@@ -218,8 +222,8 @@ impl<'a> Model<'a> {
         line
     }
 
-    pub fn render_main_screen_status_line_left(&self) -> String {
-        match self.main_window_list_state.selected() {
+    pub fn render_status_line_left(&self) -> String {
+        match self.view_state.main_window_list_state.selected() {
             None => String::new(),
             Some(line_nr) => {
                 let raw_line = &self.raw_json_lines.lines[line_nr];
@@ -228,7 +232,7 @@ impl<'a> Model<'a> {
             }
         }
     }
-    pub fn render_main_screen_status_line_right(&self) -> String {
+    pub fn render_status_line_right(&self) -> String {
         self.last_action_result.clone()
     }
 

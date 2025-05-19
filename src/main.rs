@@ -9,9 +9,6 @@ use crate::model::{Model, Screen};
 use crate::props::Props;
 use crate::raw_json_lines::{RawJsonLines, SourceName};
 use clap::Parser;
-use ratatui::prelude::{Line, Style, Stylize};
-use ratatui::widgets::{Block, List, ListState};
-use ratatui::Frame;
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, Write};
@@ -22,11 +19,11 @@ use std::path::{Path, PathBuf};
 struct Args {
     files: Vec<PathBuf>,
 
-    /// fields ordered first - separated by comma
+    /// fields displayed in-front; separated by comma
     #[arg(short, long, value_delimiter = ',')]
     field_order: Option<Vec<String>>,
 
-    /// suppressed fields - separated by comma
+    /// suppressed fields; separated by comma
     #[arg(short, long)]
     suppressed_fields: Option<Vec<String>>,
 }
@@ -122,27 +119,13 @@ fn load_lines_from_zip(
     Ok(())
 }
 
-fn render_main_screen(
-    model: &mut Model,
-    frame: &mut Frame,
-    list_state: &mut ListState,
-) {
-    let list = List::new(model as &Model)
-        .block(
-            Block::bordered()
-                .title_bottom(Line::from(model.render_main_screen_status_line_left()).left_aligned())
-                .title_bottom(Line::from(model.render_main_screen_status_line_right()).right_aligned()),
-        )
-        .highlight_style(Style::new().underlined())
-        .highlight_symbol("> ")
-        .scroll_padding(1);
-    frame.render_stateful_widget(list, frame.area(), list_state)
-}
 
-// TODO implement line detail screen for long messages (stack traces, etc)
-// TODO feature: filter displayed lines by certain field values / regexp (e.g. "level=ERROR")
-// TODO implement settings screen
+// TODO implement line detail screen and field details screen for large fields - for proper display of large field values (stack trace, etc)
 // TODO feature: search including jump to NEXT and PREVIOUS hit
+// TODO feature: filter displayed lines by certain field values / regexp (e.g. "level=ERROR")
+// TODO feature: settings screen
+// TODO Windows + Linux Artefakt on Github
+
 // TODO maybe feature: highlight lines by text / regexp search string
 // TODO maybe feature: Use Memory Mapped Files for RawJsonLines
 // TODO maybe feature: possibility to sort lines by one or more field values

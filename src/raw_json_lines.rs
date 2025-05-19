@@ -69,3 +69,31 @@ pub struct RawJsonLine {
     pub line_nr: usize,
     pub content: String,
 }
+/*
+impl RawJsonLine {
+    pub fn render_fields_as_list<'a>(&'a self, field_order: &[String]) -> Vec<ListItem<'a>> {
+        if let serde_json::Value::Object(o) = serde_json::from_str(&self.content).expect("not a json value") {
+            let mut result = vec![];
+
+            for k in field_order {
+                if let Some(v) = o.get(k) {
+                    result.push(Self::render_field(k, v))
+                }
+            }
+
+            for (k,v) in &o {
+                if !field_order.contains(k) {
+                    result.push(Self::render_field(k,v))
+                }
+            }
+
+            result
+        } else {
+            panic!("line should be in json object format")
+        }
+    }
+
+    fn render_field<'a, 'b>(key: &'a str, v: &'a serde_json::Value) -> ListItem<'b> {
+        ListItem::new(Span::styled(format!("{key}"), Style::default()).)
+    }
+}*/
