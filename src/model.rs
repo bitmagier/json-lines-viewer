@@ -2,19 +2,22 @@ use crate::props::Props;
 use crate::raw_json_lines::RawJsonLines;
 use ratatui::prelude::{Color, Line, Size, Span, Stylize};
 use ratatui::widgets::{ListItem, ListState};
-use serde_json::{Map, Value};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::cmp;
+use std::num::NonZero;
+use std::rc::Rc;
+
 #[derive(Clone)]
 pub struct Model<'a> {
     pub active_screen: Screen,
     pub raw_json_lines: &'a RawJsonLines,
+    pub raw_json_line_visibility_cache: RefCell<Vec<Option<bool>>>,
     pub props: Props,
     pub main_window_list_state: ListState,
     pub terminal_size: Size,
-    // returns true for lines to be displayed
-    pub json_line_filter: fn(&Map<String, Value>) -> bool,
-    num_fields_high_water_mark: RefCell<usize>,
+    // shall return true for lines to be displayed
+    json_line_filter: fn(&serde_json::Value) -> bool,
+    num_fields_high_water_mark: Cell<usize>,
     line_view_field_offset: usize,
     last_action_result: String,
 }
@@ -50,6 +53,7 @@ impl<'a> Model<'a> {
         Self {
             active_screen: Default::default(),
             raw_json_lines,
+            raw_json_line_visibility_cache: RefCell::new(vec![None; raw_json_lines.lines.len()]),
             props,
             main_window_list_state: if raw_json_lines.is_empty() {
                 ListState::default()
@@ -58,10 +62,18 @@ impl<'a> Model<'a> {
             },
             terminal_size,
             json_line_filter: |_| true,
-            num_fields_high_water_mark: RefCell::new(0), // gets updated before the first usage
+            num_fields_high_water_mark: Cell::new(0), // gets updated before the first usage
             line_view_field_offset: 0,
             last_action_result: String::new(),
         }
+    }
+
+    pub fn set_json_line_filter(
+        &mut self,
+        json_line_filter: fn(&serde_json::Value) -> bool,
+    ) {
+        self.json_line_filter = json_line_filter;
+        self.raw_json_line_visibility_cache = RefCell::new(vec![None; self.raw_json_lines.lines.len()]);
     }
 
     pub fn update_state(
@@ -127,7 +139,7 @@ impl<'a> Model<'a> {
                     (self, None)
                 }
                 Message::ScrollRight => {
-                    if self.line_view_field_offset + 1 < *self.num_fields_high_water_mark.borrow() {
+                    if self.line_view_field_offset + 1 < self.num_fields_high_water_mark.get() {
                         self.line_view_field_offset += 1;
                     }
                     (self, None)
@@ -162,14 +174,14 @@ impl<'a> Model<'a> {
         }
     }
 
-    fn render_json_line(
+    fn render_json_line<'x>(
         &self,
-        m: Map<String, Value>,
-    ) -> Line {
+        m: &serde_json::Map<String, serde_json::Value>,
+    ) -> Line<'x> {
         fn render_property(
             line: &mut Line,
             k: &str,
-            v: &Value,
+            v: &serde_json::Value,
         ) {
             if line.iter().len() > 0 {
                 line.push_span(Span::styled(", ", Color::Gray));
@@ -190,7 +202,7 @@ impl<'a> Model<'a> {
             }
         }
 
-        for (k, v) in &m {
+        for (k, v) in m {
             if !self.props.fields_order.contains(k) && !self.props.fields_suppressed.contains(k) {
                 if self.line_view_field_offset <= num_fields {
                     render_property(&mut line, k, v);
@@ -199,9 +211,10 @@ impl<'a> Model<'a> {
             }
         }
 
-        if num_fields > *self.num_fields_high_water_mark.borrow() {
+        if num_fields > self.num_fields_high_water_mark.get() {
             self.num_fields_high_water_mark.replace(num_fields);
         }
+
         line
     }
 
@@ -218,6 +231,25 @@ impl<'a> Model<'a> {
     pub fn render_main_screen_status_line_right(&self) -> String {
         self.last_action_result.clone()
     }
+
+    pub fn determine_line_visibility<F>(
+        &self,
+        line_idx: usize,
+        json_object_getter: F,
+    ) -> bool
+    where
+        F: FnOnce() -> Rc<serde_json::Value>,
+    {
+        let val = self.raw_json_line_visibility_cache.borrow()[line_idx];
+        match val {
+            Some(val) => val,
+            None => {
+                let result = (self.json_line_filter)(&json_object_getter());
+                (*self.raw_json_line_visibility_cache.borrow_mut())[line_idx] = Some(result);
+                result
+            },
+        }
+    }
 }
 
 pub struct ModelIntoIter<'a> {
@@ -225,7 +257,37 @@ pub struct ModelIntoIter<'a> {
     index: usize,
 }
 
-impl<'a> IntoIterator for &'a Model<'_> {
+impl<'a> ModelIntoIter<'a> {
+    // light version of Self::next() that simply skips the item.
+    // returns true if the item was skipped, false if there are no more items
+    fn skip_item(&mut self) -> bool {
+        fn deserialize(raw: &str) -> serde_json::Value {
+            serde_json::from_str(raw).expect("invalid_json")
+        }
+
+        if self.index >= self.model.raw_json_lines.lines.len() {
+            false
+        } else {
+            let raw_line = &self.model.raw_json_lines.lines[self.index];
+            let is_visible = self
+                .model
+                .determine_line_visibility(self.index, || Rc::new(deserialize(&raw_line.content)));
+
+            match is_visible {
+                false => {
+                    self.index += 1;
+                    self.skip_item()
+                }
+                true => {
+                    self.index += 1;
+                    true
+                }
+            }
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a Model<'a> {
     type Item = ListItem<'a>;
     type IntoIter = ModelIntoIter<'a>;
 
@@ -242,21 +304,20 @@ impl<'a> Iterator for ModelIntoIter<'a> {
             None
         } else {
             let raw_line = &self.model.raw_json_lines.lines[self.index];
-            match serde_json::from_str(&raw_line.content).expect("invalid json") {
-                Value::Object(o) => match (self.model.json_line_filter)(&o) {
-                    false => {
-                        self.index += 1;
-                        self.next()
-                    }
-                    true => {
-                        let line = self.model.render_json_line(o);
-                        self.index += 1;
-                        Some(ListItem::new(line))
-                    }
-                },
-                v => {
+            let json: Rc<serde_json::Value> = Rc::new(serde_json::from_str(&raw_line.content).expect("invalid json"));
+            let line = match json.as_ref() {
+                serde_json::Value::Object(o) => self.model.render_json_line(o),
+                e => Line::from(format!("{e}")),
+            };
+
+            match self.model.determine_line_visibility(self.index, || Rc::clone(&json)) {
+                false => {
                     self.index += 1;
-                    Some(ListItem::new(Line::from(format!("{v}"))))
+                    self.next()
+                }
+                true => {
+                    self.index += 1;
+                    Some(ListItem::new(line))
                 }
             }
         }
@@ -264,5 +325,18 @@ impl<'a> Iterator for ModelIntoIter<'a> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (0, Some(self.model.raw_json_lines.lines.len() - self.index))
+    }
+
+    fn advance_by(
+        &mut self,
+        n: usize,
+    ) -> Result<(), NonZero<usize>> {
+        for i in 0..n {
+            match self.skip_item() {
+                true => (),
+                false => return Err(NonZero::new(n - i).unwrap()),
+            }
+        }
+        Ok(())
     }
 }

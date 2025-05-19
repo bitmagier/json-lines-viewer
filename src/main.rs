@@ -1,3 +1,4 @@
+#![feature(iter_advance_by)]
 mod event;
 mod model;
 mod props;
@@ -122,11 +123,11 @@ fn load_lines_from_zip(
 }
 
 fn render_main_screen(
-    model: &Model,
+    model: &mut Model,
     frame: &mut Frame,
     list_state: &mut ListState,
 ) {
-    let list = List::new(model)
+    let list = List::new(model as &Model)
         .block(
             Block::bordered()
                 .title_bottom(Line::from(model.render_main_screen_status_line_left()).left_aligned())
@@ -143,7 +144,6 @@ fn render_main_screen(
 // TODO implement settings screen
 // TODO feature: search including jump to NEXT and PREVIOUS hit
 // TODO maybe feature: highlight lines by text / regexp search string
-// TODO maybe feature: minimize rendering effort of large files by rendering only exactly the visible lines (not the ones before like currently via the iterator approach)
 // TODO maybe feature: Use Memory Mapped Files for RawJsonLines
 // TODO maybe feature: possibility to sort lines by one or more field values
 // TODO maybe feature: highlight certain field-values
