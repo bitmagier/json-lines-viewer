@@ -122,7 +122,6 @@ fn load_lines_from_zip(
 
 
 // Version 1
-// TODO implement line detail screen and field details screen for large fields - for proper display of large field values (stack trace, etc)
 // TODO feature: search including jump to NEXT and PREVIOUS hit
 // TODO feature: filter displayed lines by certain field values / regexp (e.g. "level=ERROR")
 // TODO feature: settings screen
