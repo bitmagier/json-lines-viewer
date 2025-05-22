@@ -10,7 +10,7 @@ The main use case is to support the analysis of comprehensive application logs i
 - Install Rust => see https://www.rust-lang.org/tools/install
 - `cargo install --path .`
 
-## User way:
+### Other way:
 Download precompiled binary for your platform from Github.
 
 ## Usage
