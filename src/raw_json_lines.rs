@@ -1,3 +1,5 @@
+use ratatui::prelude::{Span, Style};
+use ratatui::widgets::ListItem;
 use rustc_hash::FxHashMap;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
@@ -69,31 +71,28 @@ pub struct RawJsonLine {
     pub line_nr: usize,
     pub content: String,
 }
-/*
+
 impl RawJsonLine {
-    pub fn render_fields_as_list<'a>(&'a self, field_order: &[String]) -> Vec<ListItem<'a>> {
+    /// returns ListItems and keys in rendered order
+    pub fn render_fields_as_list(&self, key_order: &[String]) -> (Vec<ListItem>, Vec<String>) {
         if let serde_json::Value::Object(o) = serde_json::from_str(&self.content).expect("not a json value") {
-            let mut result = vec![];
 
-            for k in field_order {
-                if let Some(v) = o.get(k) {
-                    result.push(Self::render_field(k, v))
-                }
+            let mut keys_in_rendered_order: Vec<_> = key_order.iter().filter(|&e| o.contains_key(e)).map(|e| e.clone()).collect();
+            keys_in_rendered_order.extend(o.keys().filter(|&e| !key_order.contains(e)).cloned());
+
+            let mut list_items = vec![];
+
+            for k in &keys_in_rendered_order {
+                list_items.push(Self::render_attribute(k, o.get(k).unwrap()));
             }
 
-            for (k,v) in &o {
-                if !field_order.contains(k) {
-                    result.push(Self::render_field(k,v))
-                }
-            }
-
-            result
+            (list_items, keys_in_rendered_order)
         } else {
             panic!("line should be in json object format")
         }
     }
 
-    fn render_field<'a, 'b>(key: &'a str, v: &'a serde_json::Value) -> ListItem<'b> {
-        ListItem::new(Span::styled(format!("{key}"), Style::default()).)
+    fn render_attribute<'a, 'b>(key: &'a str, value: &'a serde_json::Value) -> ListItem<'b> {
+        ListItem::new(Span::styled(format!("{key} : {value}"), Style::default()))
     }
-}*/
+}

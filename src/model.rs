@@ -1,6 +1,6 @@
 use crate::props::Props;
 use crate::raw_json_lines::RawJsonLines;
-use ratatui::prelude::{Color, Line, Size, Span, Stylize};
+use ratatui::prelude::{Line, Size, Stylize};
 use ratatui::widgets::{ListItem, ListState};
 use std::cell::{Cell, RefCell};
 use std::cmp;
@@ -18,19 +18,24 @@ pub struct Model<'a> {
     // shall return true for lines to be displayed
     json_line_filter: fn(&serde_json::Value) -> bool,
     num_fields_high_water_mark: Cell<usize>,
-    line_view_field_offset: usize,
+    line_rendering_field_offset: usize,
     last_action_result: String,
 }
 
 #[derive(Clone)]
 pub struct ModelViewState {
     pub main_window_list_state: ListState,
-    // pub line_details_list_state: ListState,
+    pub line_details_list_state: ListState,
+    pub selected_line_details_field_name: Option<String>,
+    pub value_screen_list_state: ListState,
 }
 impl Default for ModelViewState {
     fn default() -> Self {
         ModelViewState {
             main_window_list_state: ListState::default().with_selected(Some(0)),
+            line_details_list_state: ListState::default().with_selected(Some(0)),
+            selected_line_details_field_name: None,
+            value_screen_list_state: ListState::default(),
         }
     }
 }
@@ -41,6 +46,7 @@ pub enum Screen {
     #[default]
     Main,
     LineDetails,
+    ValueDetails,
 }
 pub enum Message {
     First,
@@ -72,7 +78,7 @@ impl<'a> Model<'a> {
             terminal_size,
             json_line_filter: |_| true,
             num_fields_high_water_mark: Cell::new(0), // gets updated before the first usage
-            line_view_field_offset: 0,
+            line_rendering_field_offset: 0,
             last_action_result: String::new(),
         }
     }
@@ -100,55 +106,62 @@ impl<'a> Model<'a> {
                     (self, None)
                 }
                 Message::Last => {
-                    self.view_state.main_window_list_state
+                    self.view_state
+                        .main_window_list_state
                         .select(Some(cmp::min(self.raw_json_lines.lines.len() as isize - 1, 0) as usize));
                     (self, None)
                 }
                 Message::ScrollUp => {
                     if let Some(pos) = self.view_state.main_window_list_state.selected() {
-                        self.view_state.main_window_list_state.select(Some(cmp::max(pos as isize - 1, 0) as usize));
+                        self.view_state
+                            .main_window_list_state
+                            .select(Some(cmp::max(pos as isize - 1, 0) as usize));
                     }
                     (self, None)
                 }
                 Message::ScrollDown => {
                     if let Some(pos) = self.view_state.main_window_list_state.selected() {
-                        self.view_state.main_window_list_state.select(Some(
-                            cmp::min(pos as isize + 1, self.raw_json_lines.lines.len() as isize - 1) as usize
-                        ));
+                        self.view_state
+                            .main_window_list_state
+                            .select(Some(
+                                cmp::min(pos as isize + 1, self.raw_json_lines.lines.len() as isize - 1) as usize
+                            ));
                     }
                     (self, None)
                 }
                 Message::PageUp => {
                     if let Some(pos) = self.view_state.main_window_list_state.selected() {
-                        self.view_state.main_window_list_state
-                            .select(Some(cmp::max(pos as isize - self.terminal_size.height as isize - 2, 0) as usize))
+                        self.view_state
+                            .main_window_list_state
+                            .select(Some(pos.saturating_sub(self.page_len() as usize)))
                     }
                     (self, None)
                 }
                 Message::PageDown => {
                     if let Some(pos) = self.view_state.main_window_list_state.selected() {
                         self.view_state.main_window_list_state.select(Some(cmp::min(
-                            pos as isize + self.terminal_size.height as isize - 2,
-                            self.raw_json_lines.lines.len() as isize - 1,
-                        ) as usize))
+                            pos + self.page_len() as usize,
+                            self.raw_json_lines.lines.len().saturating_sub(1),
+                        )))
                     }
                     (self, None)
                 }
                 Message::ScrollLeft => {
-                    if self.line_view_field_offset > 0 {
-                        self.line_view_field_offset -= 1;
+                    if self.line_rendering_field_offset > 0 {
+                        self.line_rendering_field_offset -= 1;
                     }
                     (self, None)
                 }
                 Message::ScrollRight => {
-                    if self.line_view_field_offset + 1 < self.num_fields_high_water_mark.get() {
-                        self.line_view_field_offset += 1;
+                    if self.line_rendering_field_offset + 1 < self.num_fields_high_water_mark.get() {
+                        self.line_rendering_field_offset += 1;
                     }
                     (self, None)
                 }
                 Message::Enter => {
                     if self.view_state.main_window_list_state.selected().is_some() {
                         self.active_screen = Screen::LineDetails;
+                        self.view_state.line_details_list_state.select(Some(0));
                     }
                     (self, None)
                 }
@@ -169,8 +182,67 @@ impl<'a> Model<'a> {
                 }
             },
             Screen::LineDetails => match msg {
+                Message::First => {
+                    self.view_state.line_details_list_state.select_first();
+                    (self, None)
+                }
+                Message::Last => {
+                    self.view_state.line_details_list_state.select_last();
+                    (self, None)
+                }
+                Message::ScrollUp => {
+                    self.view_state.line_details_list_state.scroll_up_by(1);
+                    (self, None)
+                }
+                Message::ScrollDown => {
+                    self.view_state.line_details_list_state.scroll_down_by(1);
+                    (self, None)
+                }
+                Message::PageUp => {
+                    self.view_state.line_details_list_state.scroll_up_by(self.page_len());
+                    (self, None)
+                }
+                Message::PageDown => {
+                    self.view_state.line_details_list_state.scroll_down_by(self.page_len());
+                    (self, None)
+                }
+                Message::Enter => {
+                    self.active_screen = Screen::ValueDetails;
+                    (self, None)
+                }
                 Message::Exit => {
                     self.active_screen = Screen::Main;
+                    (self, None)
+                }
+                _ => (self, None),
+            },
+            Screen::ValueDetails => match msg {
+                Message::ScrollUp => {
+                    self.view_state.value_screen_list_state.scroll_up_by(1);
+                    (self, None)
+                }
+                Message::ScrollDown => {
+                    self.view_state.value_screen_list_state.scroll_down_by(1);
+                    (self, None)
+                }
+                Message::PageUp => {
+                    self.view_state.value_screen_list_state.scroll_up_by(self.page_len());
+                    (self, None)
+                }
+                Message::PageDown => {
+                    self.view_state.value_screen_list_state.scroll_down_by(self.page_len());
+                    (self, None)
+                }
+                // Message::ScrollLeft => {
+                //     self.view_state.details_scroll_offset.0 = self.view_state.details_scroll_offset.0.saturating_sub(1);
+                //     (self, None)
+                // }
+                // Message::ScrollRight => {
+                //     self.view_state.details_scroll_offset.0 += 1; // TODO limit scrolling here to max text line len
+                //     (self, None)
+                // }
+                Message::Exit => {
+                    self.active_screen = Screen::LineDetails;
                     (self, None)
                 }
                 _ => (self, None),
@@ -188,18 +260,18 @@ impl<'a> Model<'a> {
             v: &serde_json::Value,
         ) {
             if line.iter().len() > 0 {
-                line.push_span(Span::styled(", ", Color::Gray));
+                line.push_span(", ".gray());
             }
-            line.push_span(Span::styled(k.to_string(), Color::Green));
-            line.push_span(":".dark_gray());
-            line.push_span(format!("{v}").gray());
+            line.push_span(k.to_string().gray());
+            line.push_span(":".gray());
+            line.push_span(format!("{v}").white());
         }
 
         let mut line = Line::default();
         let mut num_fields = 0;
         for k in &self.props.fields_order {
             if let Some(v) = m.get(k) {
-                if self.line_view_field_offset <= num_fields {
+                if self.line_rendering_field_offset <= num_fields {
                     render_property(&mut line, k, v);
                 }
                 num_fields += 1;
@@ -208,7 +280,7 @@ impl<'a> Model<'a> {
 
         for (k, v) in m {
             if !self.props.fields_order.contains(k) && !self.props.fields_suppressed.contains(k) {
-                if self.line_view_field_offset <= num_fields {
+                if self.line_rendering_field_offset <= num_fields {
                     render_property(&mut line, k, v);
                 }
                 num_fields += 1;
@@ -251,8 +323,12 @@ impl<'a> Model<'a> {
                 let result = (self.json_line_filter)(&json_object_getter());
                 (*self.raw_json_line_visibility_cache.borrow_mut())[line_idx] = Some(result);
                 result
-            },
+            }
         }
+    }
+
+    fn page_len(&self) -> u16 {
+        self.terminal_size.height.saturating_sub(2)
     }
 }
 

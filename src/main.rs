@@ -8,6 +8,7 @@ mod tui;
 use crate::model::{Model, Screen};
 use crate::props::Props;
 use crate::raw_json_lines::{RawJsonLines, SourceName};
+use anyhow::anyhow;
 use clap::Parser;
 use std::fs::File;
 use std::io;
@@ -37,11 +38,11 @@ fn main() -> anyhow::Result<()> {
     tui::install_panic_hook();
     let mut terminal = tui::init_terminal()?;
 
-    let mut model = Model::new(props, terminal.size()?, &lines);
+    let mut model = Model::new(props, terminal.size().map_err(|e| anyhow!("{e}"))?, &lines);
 
     while model.active_screen != Screen::Done {
         // Render the current view
-        terminal.draw(|f| tui::view(&mut model, f))?;
+        terminal.draw(|f| tui::view(&mut model, f)).map_err(|e| anyhow!("{e}"))?;
 
         // Handle events and map to a Message
         let mut current_msg = event::handle_event(&model)?;
@@ -120,11 +121,15 @@ fn load_lines_from_zip(
 }
 
 
+// Version 1
 // TODO implement line detail screen and field details screen for large fields - for proper display of large field values (stack trace, etc)
 // TODO feature: search including jump to NEXT and PREVIOUS hit
 // TODO feature: filter displayed lines by certain field values / regexp (e.g. "level=ERROR")
 // TODO feature: settings screen
 // TODO Windows + Linux Artefakt on Github
+
+// Version 2
+// TODO generalize viewer to any kind of json and any object depth
 
 // TODO maybe feature: highlight lines by text / regexp search string
 // TODO maybe feature: Use Memory Mapped Files for RawJsonLines

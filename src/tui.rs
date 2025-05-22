@@ -1,7 +1,6 @@
 use crate::model::{Model, ModelViewState, Screen};
-use crate::raw_json_lines::RawJsonLines;
-use ratatui::prelude::{Line, Style, Stylize, Text};
-use ratatui::widgets::{Block, List, ListState, Paragraph};
+use ratatui::prelude::{Line, Style, Text};
+use ratatui::widgets::{Block, List, ListState};
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -10,6 +9,8 @@ use ratatui::{
     Frame,
     Terminal,
 };
+use serde_json::Value;
+use std::str::FromStr;
 use std::{io::stdout, panic};
 
 pub fn init_terminal() -> anyhow::Result<Terminal<impl Backend>> {
@@ -38,25 +39,18 @@ pub fn view(
     model: &mut Model,
     frame: &mut Frame,
 ) {
-    let ModelViewState {
-        mut main_window_list_state,
-        // mut line_details_list_state,
-    } = model.view_state.clone();
+    let mut view_state: ModelViewState = model.view_state.clone();
 
     match model.active_screen {
         Screen::Done => (),
-        Screen::Main => render_main_screen(model, &mut main_window_list_state, frame),
+        Screen::Main => render_main_screen(model, &mut view_state.main_window_list_state, frame),
         Screen::LineDetails => {
-            let line_idx = main_window_list_state.selected().expect("we should find a a selected field");
-            render_line_details(model, line_idx, frame);
-            // render_line_details_screen(model, line_idx, &mut line_details_list_state, frame)
+            view_state.selected_line_details_field_name = render_line_details_screen(model, &mut view_state.line_details_list_state, frame)
         }
+        Screen::ValueDetails => render_value_details_screen(model, &mut view_state.value_screen_list_state, frame),
     }
 
-    model.view_state = ModelViewState {
-        main_window_list_state,
-        // line_details_list_state,
-    };
+    model.view_state = view_state;
 }
 
 fn render_main_screen(
@@ -76,43 +70,68 @@ fn render_main_screen(
     frame.render_stateful_widget(json_line_list, frame.area(), list_state);
 }
 
-fn render_line_details(
+/// returns the key of the selected attribute
+fn render_line_details_screen(
     model: &Model,
-    line_idx: usize,
+    list_state: &mut ListState,
     frame: &mut Frame,
-) {
-    frame.render_widget(
-        Paragraph::new(render_lines_screen_content(model.raw_json_lines, line_idx)).block(
+) -> Option<String> {
+    let line_idx = model
+        .view_state
+        .main_window_list_state
+        .selected()
+        .expect("we should find a a selected field");
+    let (list_items, keys_in_rendered_order) = model.raw_json_lines.lines[line_idx].render_fields_as_list(&model.props.fields_order);
+    let json_field_list = List::new(list_items)
+        .block(
             Block::bordered()
                 .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
                 .title_bottom(Line::from(model.render_status_line_right()).right_aligned()),
-        ),
-        frame.area(),
-    );
+        )
+        .highlight_style(Style::new().underlined())
+        .scroll_padding(1);
+    frame.render_stateful_widget(json_field_list, frame.area(), list_state);
+
+    list_state.selected().map(|i| keys_in_rendered_order.get(i).unwrap().to_string())
 }
 
-fn render_lines_screen_content(
-    raw_json_lines: &RawJsonLines,
-    line_idx: usize,
-) -> Text {
-    let j: serde_json::Value = serde_json::from_str(&raw_json_lines.lines[line_idx].content).expect("should be json");
-    Text::raw(format!("{j}"))
-}
+fn render_value_details_screen(
+    model: &Model,
+    list_state: &mut ListState,
+    frame: &mut Frame,
+) {
+    let line_idx = model
+        .view_state
+        .main_window_list_state
+        .selected()
+        .expect("we should find a a selected field");
+    let raw_line = &model.raw_json_lines.lines[line_idx].content;
 
-// fn render_line_details_screen(
-//     model: &Model,
-//     line_idx: usize,
-//     list_state: &mut ListState,
-//     frame: &mut Frame,
-// ) {
-//     let json_field_list = List::new(model.raw_json_lines.lines[line_idx].render_fields_as_list(&model.props.fields_order))
-//         .block(
-//             Block::bordered()
-//                 .title_bottom(Line::from(model.render_main_screen_status_line_left()).left_aligned())
-//                 .title_bottom(Line::from(model.render_main_screen_status_line_right()).right_aligned()),
-//         )
-//         .highlight_style(Style::new().underlined())
-//         // .highlight_symbol("")
-//         .scroll_padding(1);
-//     frame.render_stateful_widget(json_field_list, frame.area(), list_state);
-// }
+    let lines = if let Value::Object(o) = serde_json::Value::from_str(raw_line).expect("invalid json") {
+        let value = o
+            .get(
+                model
+                    .view_state
+                    .selected_line_details_field_name
+                    .as_ref()
+                    .expect("should have a selected field"),
+            )
+            .expect("key should exist");
+        match value {
+            Value::String(s) => s.lines().map(|e| Text::raw(format!("{e}"))).collect::<Vec<_>>(),
+            _ => vec![Text::raw(format!("{value}"))]
+        }
+    } else {
+        panic!("should find a json object")
+    };
+
+    let details_widget = List::new(lines)
+        .block(
+            Block::bordered()
+                .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
+                .title_bottom(Line::from(model.render_status_line_right()).right_aligned()),
+        ).highlight_style(Style::new().underlined())
+        .scroll_padding(1);
+
+    frame.render_stateful_widget(details_widget, frame.area(), list_state);
+}
