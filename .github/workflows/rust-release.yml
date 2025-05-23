@@ -28,7 +28,7 @@ jobs:
           RUSTTARGET: ${{ matrix.target }}
           EXTRA_FILES: "README.md LICENSE"
           ARCHIVE_TYPES: ${{ matrix.archive_type }}
-          ARCHIVE_NAME: json-lines-viewer-${{ matrix.archive_platform_name }}.${{ matrix.archive_type }}
+          ARCHIVE_NAME: json-lines-viewer-${{ matrix.archive_platform_name }}
           UPLOAD_MODE: release
 #  publish-crate:
 #    runs-on: ubuntu-latest
