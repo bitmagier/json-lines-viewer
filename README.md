@@ -33,6 +33,6 @@ Options:
 
 ## Program navigation / usage
 
-Use Cursor Keys / PageUp/PageDown and Left/Right to navigate on a page.
-Use `Enter` to dive into details of the selected line and `Esc` to go to parent screen (or exit program when in main screen)
-Use `Ctrl-S` to save current settings. The current settings are coming from commandline options (or previous saved config file).   
+- Use Cursor Keys / PageUp/PageDown and Left/Right to navigate on a page.
+- Use `Enter` to go into details of the selected line and `Esc` to go back to parent screen (or exit program from main screen)
+- Use `Ctrl-S` to save current settings. The current settings are coming from commandline options (or previous saved config file).   
