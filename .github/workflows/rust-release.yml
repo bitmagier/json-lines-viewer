@@ -1,29 +1,21 @@
-name: Publish release artefacts
+name: Build and Release
+
 on:
   release:
     types: [created]
 
 jobs:
-  release:
-    name: release ${{ matrix.target }}
+  build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - target: x86_64-pc-windows-gnu
-            archive: zip
-          - target: x86_64-unknown-linux-musl
-            archive: tar.gz tar.xz
-          - target: x86_64-apple-darwin
-            archive: zip
-    outputs:
-      release_built: ${{ steps.set-output.outputs.release_built }}
     steps:
       - uses: actions/checkout@v4
-      - name: Build and release
+      - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
+          RUSTTARGET: x86_64-unknown-linux-musl
+          EXTRA_FILES: "README.md LICENSE"
+          ARCHIVE_TYPES: "tar.gz tar.xz"
+          ARCHIVE_NAME: "json-lines-viewer-${{ matrix.target }}.tar.gz"
+          UPLOAD_MODE: release
