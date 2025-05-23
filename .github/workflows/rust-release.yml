@@ -13,8 +13,6 @@ jobs:
 #        target: [x86_64-unknown-linux-musl]
     outputs:
       release_built: ${{ steps.set-output.outputs.release_built }}
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - name: Build binaries in "${{ matrix.BUILD_TARGET }}" mode
@@ -22,5 +20,7 @@ jobs:
       - name: Run tests in "${{ matrix.BUILD_TARGET }}" mode
         run: cargo test --profile ${{ matrix.BUILD_TARGET }}
       - name: Publish built binary to GitHub releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create
