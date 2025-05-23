@@ -90,7 +90,7 @@ fn load_lines_from_json(
     path: &Path,
 ) -> anyhow::Result<()> {
     for (line_nr, line) in io::BufReader::new(File::open(path)?).lines().enumerate() {
-        raw_lines.push(SourceName::JsonFile(path.to_path_buf()), line_nr + 1, line?);
+        raw_lines.push(SourceName::JsonFile(path.file_name().unwrap().to_string_lossy().into()), line_nr + 1, line?);
     }
     Ok(())
 }
@@ -109,7 +109,7 @@ fn load_lines_from_zip(
             for (line_nr, line) in io::BufReader::new(f).lines().enumerate() {
                 raw_lines.push(
                     SourceName::JsonInZip {
-                        zip_file: path.to_path_buf(),
+                        zip_file: path.file_name().unwrap().to_string_lossy().into(),
                         json_file: json_file.clone(),
                     },
                     line_nr + 1,

@@ -2,7 +2,6 @@ use ratatui::prelude::{Span, Style};
 use ratatui::widgets::ListItem;
 use rustc_hash::FxHashMap;
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
 
 #[derive(Default)]
 pub struct RawJsonLines {
@@ -52,8 +51,8 @@ impl RawJsonLines {
 
 #[derive(PartialEq, Eq)]
 pub enum SourceName {
-    JsonFile(PathBuf),
-    JsonInZip { zip_file: PathBuf, json_file: String },
+    JsonFile(String),
+    JsonInZip { zip_file: String, json_file: String },
 }
 impl Display for SourceName {
     fn fmt(
@@ -61,8 +60,8 @@ impl Display for SourceName {
         f: &mut Formatter<'_>,
     ) -> std::fmt::Result {
         match self {
-            SourceName::JsonFile(e) => write!(f, "{}", e.to_string_lossy()),
-            SourceName::JsonInZip { zip_file, json_file } => write!(f, "{}/{}", zip_file.to_string_lossy(), json_file),
+            SourceName::JsonFile(e) => write!(f, "{e}"),
+            SourceName::JsonInZip { zip_file, json_file } => write!(f, "{zip_file}/{json_file}"),
         }
     }
 }
