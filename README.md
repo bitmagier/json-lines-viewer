@@ -14,6 +14,8 @@ The main use case is to support the analysis of comprehensive application logs i
 Download precompiled binary for your platform from Github.
 
 ## Usage
+
+### Run
 ```
 JSON Lines Viewer - Terminal-UI to view comprehensive application logs in 'Json line format' or Zip files containing such files
 
@@ -28,3 +30,5 @@ Options:
   -h, --help                                   Print help
   -V, --version                                Print version
 ```
+
+## Program navigation / usage

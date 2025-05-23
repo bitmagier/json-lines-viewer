@@ -13,10 +13,10 @@ jobs:
       matrix:
         include:
           - target: x86_64-pc-windows-gnu
-            archive: zip
+            archive_type: zip
             archive_platform_name: x86_64_windows
           - target: x86_64-unknown-linux-musl
-            archive: tar.xz
+            archive_type: tar.xz
             archive_platform_name: x86_64_linux
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +27,8 @@ jobs:
         with:
           RUSTTARGET: ${{ matrix.target }}
           EXTRA_FILES: "README.md LICENSE"
-          ARCHIVE_NAME: json-lines-viewer- ${{ matrix.platform_name }} . ${{ matrix.archive }}
+          ARCHIVE_TYPES: ${{ matrix.archive_type }}
+          ARCHIVE_NAME: json-lines-viewer-${{ matrix.archive_platform_name }}.${{ matrix.archive_type }}
           UPLOAD_MODE: release
 #  publish-crate:
 #    runs-on: ubuntu-latest

@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
+    /// JSON line input files - `.json` or `.zip` files(s) containing `.json` files
     files: Vec<PathBuf>,
 
     /// fields displayed in-front; separated by comma
