@@ -1,7 +1,7 @@
-name: Publish release artefacts
+name: Publish pre-release/release artefacts
 on:
   release:
-    types: [created]
+    types: [published]
 
 jobs:
   release:
