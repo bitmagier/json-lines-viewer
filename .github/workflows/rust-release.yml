@@ -13,6 +13,8 @@ jobs:
 #        target: [x86_64-unknown-linux-musl]
     outputs:
       release_built: ${{ steps.set-output.outputs.release_built }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - name: Build binaries in "${{ matrix.BUILD_TARGET }}" mode
