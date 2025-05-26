@@ -1,5 +1,5 @@
 use crate::model::{Model, ModelViewState, Screen};
-use ratatui::prelude::{Line, Style, Text};
+use ratatui::prelude::{Line, Style, Stylize, Text};
 use ratatui::widgets::{Block, List, ListState};
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
@@ -44,7 +44,7 @@ pub fn view(
     match model.active_screen {
         Screen::Done => (),
         Screen::Main => render_main_screen(model, &mut view_state.main_window_list_state, frame),
-        Screen::LineDetails => {
+        Screen::ObjectDetails => {
             view_state.selected_line_details_field_name = render_line_details_screen(model, &mut view_state.line_details_list_state, frame)
         }
         Screen::ValueDetails => render_value_details_screen(model, &mut view_state.value_screen_list_state, frame),
@@ -58,12 +58,18 @@ fn render_main_screen(
     list_state: &mut ListState,
     frame: &mut Frame,
 ) {
+    let block = if model.has_find_task() {
+        Block::bordered()
+            .title_bottom(Line::from(model.render_find_task_line_left()).bold().left_aligned())
+            .title_bottom(Line::from(model.render_find_task_line_right()).bold().right_aligned())
+    } else {
+        Block::bordered()
+            .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
+            .title_bottom(Line::from(model.render_status_line_right()).right_aligned())
+    };
+
     let json_line_list = List::new(model)
-        .block(
-            Block::bordered()
-                .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
-                .title_bottom(Line::from(model.render_status_line_right()).right_aligned()),
-        )
+        .block(block)
         .highlight_style(Style::new().underlined())
         .highlight_symbol("> ")
         .scroll_padding(1);

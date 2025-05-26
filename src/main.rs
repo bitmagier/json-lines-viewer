@@ -124,9 +124,11 @@ fn load_lines_from_zip(
 
 // Version 1
 // TODO feature: search including jump to NEXT and PREVIOUS hit
+//  - search main screen by '/'
+//  - search object details screen by '/'
+//  - search Value Details screen by '/'
 // TODO feature: filter displayed lines by certain field values / regexp (e.g. "level=ERROR")
 // TODO feature: settings screen
-// TODO Windows + Linux Artefakt on Github
 
 // Version 2
 // TODO generalize viewer to any kind of json and any object depth

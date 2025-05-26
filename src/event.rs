@@ -31,11 +31,19 @@ fn handle_key(key: event::KeyEvent) -> Option<Message> {
             KeyCode::Left => Some(Message::ScrollLeft),
             KeyCode::Right => Some(Message::ScrollRight),
             KeyCode::Enter => Some(Message::Enter),
-            KeyCode::Char('q') | KeyCode::Esc => Some(Message::Exit),
+            KeyCode::Esc => Some(Message::Exit),
+            KeyCode::Char('/') => Some(Message::OpenFindTask),
+            KeyCode::Backspace => Some(Message::Backspace),
+            KeyCode::Char(c) => Some(Message::CharacterInput(c)),
             _ => None,
         },
+        KeyModifiers::SHIFT => match key.code {
+            KeyCode::Char(c) => Some(Message::CharacterInput(c)),
+            _ => None
+        }
         KeyModifiers::CONTROL => match key.code {
             KeyCode::Char('s') => Some(Message::SaveSettings),
+            KeyCode::Char('f') => Some(Message::OpenFindTask),
             _ => None,
         },
         _ => None,

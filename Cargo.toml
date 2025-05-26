@@ -1,6 +1,6 @@
 [package]
 name = "json-lines-viewer"
-version = "0.2.13"
+version = "0.3.0"
 edition = "2024"
 description = "JSON Lines Viewer - Terminal-UI to view comprehensive application logs in 'Json line format' or Zip files containing such files"
 authors = ["Roman Krüger"]
