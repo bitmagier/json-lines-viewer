@@ -296,12 +296,12 @@ impl<'a> Model<'a> {
 
     pub fn render_status_line_left(&self) -> String {
         match self.view_state.main_window_list_state.selected() {
-            None => String::new(),
-            Some(line_nr) => {
+            Some(line_nr) if self.raw_json_lines.lines.len() > line_nr => {
                 let raw_line = &self.raw_json_lines.lines[line_nr];
                 let source_name = self.raw_json_lines.source_name(raw_line.source_id).expect("invalid source id");
                 format!("{}:{}", source_name, raw_line.line_nr)
             }
+            _ => String::new(),
         }
     }
     pub fn render_status_line_right(&self) -> String {
