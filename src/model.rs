@@ -372,8 +372,12 @@ impl<'a> Model<'a> {
         self.last_action_result.clone()
     }
 
-    pub fn render_find_task_line_left(&self) -> String {
-        self.find_task.as_ref().map(|e| format!("Find: {}", &e.search_string)).unwrap_or("".to_string())
+    pub fn render_find_task_line_left(&self) -> Line {
+        if let Some(task) = self.find_task.as_ref() {
+            Line::from(vec![" [Find 🔍: ".bold(), task.search_string.to_owned().bold(), "  ] ".into()])
+        } else {
+            Line::raw("")
+        }
     }
 
     pub fn render_find_task_line_right(&self) -> String {

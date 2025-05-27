@@ -76,7 +76,7 @@ impl RawJsonLine {
     pub fn render_fields_as_list(&self, key_order: &[String]) -> (Vec<ListItem>, Vec<String>) {
         if let serde_json::Value::Object(o) = serde_json::from_str(&self.content).expect("not a json value") {
 
-            let mut keys_in_rendered_order: Vec<_> = key_order.iter().filter(|&e| o.contains_key(e)).map(|e| e.clone()).collect();
+            let mut keys_in_rendered_order: Vec<_> = key_order.iter().filter(|&e| o.contains_key(e)).cloned().collect();
             keys_in_rendered_order.extend(o.keys().filter(|&e| !key_order.contains(e)).cloned());
 
             let mut list_items = vec![];

@@ -1,5 +1,5 @@
 use crate::model::{Model, ModelViewState, Screen};
-use ratatui::prelude::{Line, Style, Stylize, Text};
+use ratatui::prelude::{Line, Style, Text};
 use ratatui::widgets::{Block, List, ListState};
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
@@ -12,6 +12,7 @@ use ratatui::{
 use serde_json::Value;
 use std::str::FromStr;
 use std::{io::stdout, panic};
+use ratatui::layout::Position;
 
 pub fn init_terminal() -> anyhow::Result<Terminal<impl Backend>> {
     enable_raw_mode()?;
@@ -59,9 +60,10 @@ fn render_main_screen(
     frame: &mut Frame,
 ) {
     let block = if model.has_find_task() {
-        Block::bordered()
-            .title_bottom(Line::from(model.render_find_task_line_left()).bold().left_aligned())
-            .title_bottom(Line::from(model.render_find_task_line_right()).bold().right_aligned())
+        let find_line = model.render_find_task_line_left();
+        frame.set_cursor_position(Position::new((1 + find_line.width() - 4) as u16, frame.area().bottom()-1));
+        Block::bordered().title_bottom(find_line.left_aligned())
+
     } else {
         Block::bordered()
             .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
@@ -124,7 +126,7 @@ fn render_value_details_screen(
             )
             .expect("key should exist");
         match value {
-            Value::String(s) => s.lines().map(|e| Text::raw(format!("{e}"))).collect::<Vec<_>>(),
+            Value::String(s) => s.lines().map(|e| Text::raw(e.to_owned())).collect::<Vec<_>>(),
             _ => vec![Text::raw(format!("{value}"))]
         }
     } else {
