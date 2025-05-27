@@ -16,7 +16,11 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = Some("JSON Lines Viewer - Terminal-UI to view application logs in 'Json line format' or Zip files containing such files.\n\
+                                                \n\
+                                                Navigation: Cursor keys, PageUp/Down, Enter/Esc.\n\
+                                                Search content: Ctrl-f or '/' and navigate to next/previous finding via Cursor Down/Up.\n\
+                                                Save current settings: Ctrl-s (e.g. field order. Settings come from commandline arguments and a previously saved config file)"))]
 struct Args {
     /// JSON line input files - `.json` or `.zip` files(s) containing `.json` files
     files: Vec<PathBuf>,
@@ -127,12 +131,12 @@ fn load_lines_from_zip(
 //  - search main screen by '/'
 //  - search object details screen by '/'
 //  - search Value Details screen by '/'
-// TODO feature: filter displayed lines by certain field values / regexp (e.g. "level=ERROR")
-// TODO feature: settings screen
 
 // Version 2
 // TODO generalize viewer to any kind of json and any object depth
 
+// Maybe
+// TODO maybe feature: settings screen
 // TODO maybe feature: highlight lines by text / regexp search string
 // TODO maybe feature: Use Memory Mapped Files for RawJsonLines
 // TODO maybe feature: possibility to sort lines by one or more field values

@@ -1,5 +1,5 @@
 use crate::model::{Model, ModelViewState, Screen};
-use ratatui::prelude::{Line, Style, Text};
+use ratatui::prelude::{Line, Rect, Style, Text};
 use ratatui::widgets::{Block, List, ListState};
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
@@ -46,7 +46,7 @@ pub fn view(
         Screen::Done => (),
         Screen::Main => render_main_screen(model, &mut view_state.main_window_list_state, frame),
         Screen::ObjectDetails => {
-            view_state.selected_line_details_field_name = render_line_details_screen(model, &mut view_state.line_details_list_state, frame)
+            view_state.selected_object_detail_field_name = render_line_details_screen(model, &mut view_state.object_detail_list_state, frame)
         }
         Screen::ValueDetails => render_value_details_screen(model, &mut view_state.value_screen_list_state, frame),
     }
@@ -54,27 +54,39 @@ pub fn view(
     model.view_state = view_state;
 }
 
+/// Creates the screen border common to all screens.
+/// Returns the Border block and the Cursor position (if there is one)
+fn produce_screen_border<'a>(frame_area: Rect, model: &'a Model) -> (Block<'a>, Option<Position>) {
+    if model.has_find_task() {
+        let find_line = model.render_find_task_line_left();
+        let cursor_position = Some(Position::new((1 + find_line.width() - 4) as u16, frame_area.bottom() - 1));
+        (Block::bordered()
+             .title_bottom(find_line.left_aligned())
+             .title_bottom(model.render_find_task_line_right().right_aligned()),
+         cursor_position)
+    } else {
+        (Block::bordered()
+             .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
+             .title_bottom(Line::from(model.render_status_line_right()).right_aligned()),
+         None
+        )
+    }
+}
+
 fn render_main_screen(
     model: &Model,
     list_state: &mut ListState,
     frame: &mut Frame,
 ) {
-    let block = if model.has_find_task() {
-        let find_line = model.render_find_task_line_left();
-        frame.set_cursor_position(Position::new((1 + find_line.width() - 4) as u16, frame.area().bottom()-1));
-        Block::bordered().title_bottom(find_line.left_aligned())
-
-    } else {
-        Block::bordered()
-            .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
-            .title_bottom(Line::from(model.render_status_line_right()).right_aligned())
-    };
-
+    let (block, cursor_position) = produce_screen_border(frame.area(), model);
     let json_line_list = List::new(model)
         .block(block)
         .highlight_style(Style::new().underlined())
         .highlight_symbol("> ")
         .scroll_padding(1);
+    if let Some(p) = cursor_position {
+        frame.set_cursor_position(p)
+    }
     frame.render_stateful_widget(json_line_list, frame.area(), list_state);
 }
 
@@ -84,22 +96,16 @@ fn render_line_details_screen(
     list_state: &mut ListState,
     frame: &mut Frame,
 ) -> Option<String> {
-    let line_idx = model
-        .view_state
-        .main_window_list_state
-        .selected()
-        .expect("we should find a a selected field");
-    let (list_items, keys_in_rendered_order) = model.raw_json_lines.lines[line_idx].render_fields_as_list(&model.props.fields_order);
+    let (block, cursor_position) = produce_screen_border(frame.area(), model);
+    let (list_items, keys_in_rendered_order) = model.create_line_details_screen_content();
     let json_field_list = List::new(list_items)
-        .block(
-            Block::bordered()
-                .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
-                .title_bottom(Line::from(model.render_status_line_right()).right_aligned()),
-        )
+        .block(block)
         .highlight_style(Style::new().underlined())
         .scroll_padding(1);
+    if let Some(p) = cursor_position {
+        frame.set_cursor_position(p)
+    }
     frame.render_stateful_widget(json_field_list, frame.area(), list_state);
-
     list_state.selected().map(|i| keys_in_rendered_order.get(i).unwrap().to_string())
 }
 
@@ -108,11 +114,7 @@ fn render_value_details_screen(
     list_state: &mut ListState,
     frame: &mut Frame,
 ) {
-    let line_idx = model
-        .view_state
-        .main_window_list_state
-        .selected()
-        .expect("we should find a a selected field");
+    let line_idx = model.view_state.main_window_list_state.selected().expect("we should find a a selected field");
     let raw_line = &model.raw_json_lines.lines[line_idx].content;
 
     let lines = if let Value::Object(o) = serde_json::Value::from_str(raw_line).expect("invalid json") {
@@ -120,7 +122,7 @@ fn render_value_details_screen(
             .get(
                 model
                     .view_state
-                    .selected_line_details_field_name
+                    .selected_object_detail_field_name
                     .as_ref()
                     .expect("should have a selected field"),
             )
@@ -133,13 +135,13 @@ fn render_value_details_screen(
         panic!("should find a json object")
     };
 
+    let (block, cursor_position) = produce_screen_border(frame.area(), model);
     let details_widget = List::new(lines)
-        .block(
-            Block::bordered()
-                .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
-                .title_bottom(Line::from(model.render_status_line_right()).right_aligned()),
-        ).highlight_style(Style::new().underlined())
+        .block(block)
+        .highlight_style(Style::new().underlined())
         .scroll_padding(1);
-
+    if let Some(p) = cursor_position {
+        frame.set_cursor_position(p)
+    }
     frame.render_stateful_widget(details_widget, frame.area(), list_state);
 }

@@ -1,5 +1,3 @@
-use ratatui::prelude::{Span, Style};
-use ratatui::widgets::ListItem;
 use rustc_hash::FxHashMap;
 use std::fmt::{Display, Formatter};
 
@@ -72,8 +70,8 @@ pub struct RawJsonLine {
 }
 
 impl RawJsonLine {
-    /// returns ListItems and keys in rendered order
-    pub fn render_fields_as_list(&self, key_order: &[String]) -> (Vec<ListItem>, Vec<String>) {
+    /// returns JSON object lines and keys in rendered order
+    pub fn produce_rendered_fields_as_list(&self, key_order: &[String]) -> (Vec<String>, Vec<String>) {
         if let serde_json::Value::Object(o) = serde_json::from_str(&self.content).expect("not a json value") {
 
             let mut keys_in_rendered_order: Vec<_> = key_order.iter().filter(|&e| o.contains_key(e)).cloned().collect();
@@ -91,7 +89,7 @@ impl RawJsonLine {
         }
     }
 
-    fn render_attribute<'a, 'b>(key: &'a str, value: &'a serde_json::Value) -> ListItem<'b> {
-        ListItem::new(Span::styled(format!("{key} : {value}"), Style::default()))
+    fn render_attribute(key: &str, value: &serde_json::Value) -> String {
+        format!("{key} : {value}")
     }
 }
