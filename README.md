@@ -7,12 +7,11 @@ _The main use case is to support the analysis of comprehensive application logs 
 
 ## Install
 
-### Developer way (compile on machine):
+### Rust developer way (compile on machine):
 - Install Rust => see https://www.rust-lang.org/tools/install
-- `git clone https://github.com/bitmagier/json-lines-viewer.git`
-- `cargo install --path .`
+- `cargo +nightly install json-lines-viewer`
 
-### Other way:
+### User way:
 Download precompiled binary for your platform from Github.
 
 ## Usage
@@ -21,7 +20,7 @@ Download precompiled binary for your platform from Github.
 JSON Lines Viewer - Terminal-UI to view application logs in 'Json line format' or Zip files containing such files.
 
 Navigation: Cursor keys, PageUp/Down, Enter/Esc.
-Search content: Ctrl-f or '/' and navigate to next/previous finding via cursor Down/Up.
+Find content: Ctrl-f or '/' and navigate to next/previous finding via cursor Down/Up.
 Save current settings: Ctrl-s (e.g. field order. Settings come from commandline arguments and a previously saved config file)
 
 Usage: json-lines-viewer [OPTIONS] [FILES]...
@@ -49,6 +48,7 @@ json-lines-viewer --field-order @timestamp,level,application_id,message,applicat
 
 ## Program navigation / usage
 
-- Use Cursor Keys, PageUp/PageDown and Left/Right to navigate on a page
+- Use Cursor Keys and PageUp/PageDown to navigate on a page
 - Use `Enter` to go into details of a selected line and `Esc` to go back to a parent screen (also exits program on Main screen)
-- Use `Ctrl-S` to save current settings. The current settings are coming from commandline options (or a previously saved config file).   
+- Use `Ctrl-f` opens a find dialog on the bottom to find lines containing a string. `Esc` leaves the find dialog. Use cursor Down/Up here to navigate to the next/previous finding.
+- Use `Ctrl-s` to save current settings. The actual settings are always coming from commandline options and a previously saved config file.
