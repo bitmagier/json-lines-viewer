@@ -1,7 +1,8 @@
 JSON Lines Viewer
 ---
 A terminal-UI to browse through JSON-line files.
-The main use case is to support the analysis of comprehensive application logs in 'Json line' format.
+
+_The main use case is to support the analysis of comprehensive application logs in 'Json line' format._
 
 
 ## Install
@@ -16,20 +17,28 @@ Download precompiled binary for your platform from Github.
 
 ## Usage
 
-### Run
 ```
-JSON Lines Viewer - Terminal-UI to view comprehensive application logs in 'Json line format' or Zip files containing such files
+JSON Lines Viewer - Terminal-UI to view application logs in 'Json line format' or Zip files containing such files.
+
+Navigation: Cursor keys, PageUp/Down, Enter/Esc.
+Search content: Ctrl-f or '/' and navigate to next/previous finding via cursor Down/Up.
+Save current settings: Ctrl-s (e.g. field order. Settings come from commandline arguments and a previously saved config file)
 
 Usage: json-lines-viewer [OPTIONS] [FILES]...
 
 Arguments:
-  [FILES]...  JSON line input files - `.json` or `.zip` files(s) containing `.json` files
+  [FILES]...
+          JSON line input files - `.json` or `.zip` files(s) containing `.json` files
 
 Options:
-  -f, --field-order <FIELD_ORDER>              fields displayed in-front; separated by comma
-  -s, --suppressed-fields <SUPPRESSED_FIELDS>  suppressed fields; separated by comma
-  -h, --help                                   Print help
-  -V, --version                                Print version
+  -f, --field-order <FIELD_ORDER>
+          fields displayed in-front; separated by comma
+
+  -s, --suppressed-fields <SUPPRESSED_FIELDS>
+          suppressed fields; separated by comma
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### Example
