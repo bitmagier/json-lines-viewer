@@ -1,6 +1,7 @@
 use crate::model::{Model, ModelViewState, Screen};
-use ratatui::prelude::{Line, Rect, Style, Text};
-use ratatui::widgets::{Block, List, ListState};
+use ratatui::layout::Position;
+use ratatui::prelude::{Line, Rect, Style};
+use ratatui::widgets::{Block, List, ListState, Paragraph, Wrap};
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -11,8 +12,7 @@ use ratatui::{
 };
 use serde_json::Value;
 use std::str::FromStr;
-use std::{io::stdout, panic};
-use ratatui::layout::Position;
+use std::{cmp, io::stdout, panic};
 
 pub fn init_terminal() -> anyhow::Result<Terminal<impl Backend>> {
     enable_raw_mode()?;
@@ -40,6 +40,10 @@ pub fn view(
     model: &mut Model,
     frame: &mut Frame,
 ) {
+    if frame.area().width < 2 || frame.area().height < 2 {
+        return; // don't need to render anything here
+    }
+
     let mut view_state: ModelViewState = model.view_state.clone();
 
     match model.active_screen {
@@ -48,7 +52,7 @@ pub fn view(
         Screen::ObjectDetails => {
             view_state.selected_object_detail_field_name = render_line_details_screen(model, &mut view_state.object_detail_list_state, frame)
         }
-        Screen::ValueDetails => render_value_details_screen(model, &mut view_state.value_screen_list_state, frame),
+        Screen::ValueDetails => render_value_details_screen(model, &mut view_state.value_screen_vertical_scroll_offset, frame),
     }
 
     model.view_state = view_state;
@@ -97,7 +101,7 @@ fn render_line_details_screen(
     frame: &mut Frame,
 ) -> Option<String> {
     let (block, cursor_position) = produce_screen_border(frame.area(), model);
-    let (list_items, keys_in_rendered_order) = model.create_line_details_screen_content();
+    let (list_items, keys_in_rendered_order) = model.produce_line_details_screen_content();
     let json_field_list = List::new(list_items)
         .block(block)
         .highlight_style(Style::new().underlined())
@@ -111,37 +115,34 @@ fn render_line_details_screen(
 
 fn render_value_details_screen(
     model: &Model,
-    list_state: &mut ListState,
+    vertical_scroll_offset: &mut u16,
     frame: &mut Frame,
 ) {
-    let line_idx = model.view_state.main_window_list_state.selected().expect("we should find a a selected field");
+    let line_idx = model.view_state.main_window_list_state.selected().expect("we should find a a selected line");
     let raw_line = &model.raw_json_lines.lines[line_idx].content;
-
-    let lines = if let Value::Object(o) = serde_json::Value::from_str(raw_line).expect("invalid json") {
-        let value = o
-            .get(
-                model
-                    .view_state
-                    .selected_object_detail_field_name
-                    .as_ref()
-                    .expect("should have a selected field"),
-            )
+    let text = if let Value::Object(o) = serde_json::Value::from_str(raw_line).expect("invalid json") {
+        let value = o.get(model.view_state.selected_object_detail_field_name.as_ref().expect("should have a selected field"))
             .expect("key should exist");
         match value {
-            Value::String(s) => s.lines().map(|e| Text::raw(e.to_owned())).collect::<Vec<_>>(),
-            _ => vec![Text::raw(format!("{value}"))]
+            Value::String(s) => s.clone(),
+            _ => format!("{value}")
         }
     } else {
         panic!("should find a json object")
     };
 
+    // correct scroll line offset – so that current text lines are always on the screen
+    let page_len = frame.area().height.saturating_sub(2);
+    let max_reasonable_scroll_offset = (text.lines().count() as u16).saturating_sub(page_len);
+    *vertical_scroll_offset = cmp::min(*vertical_scroll_offset, max_reasonable_scroll_offset);
+
     let (block, cursor_position) = produce_screen_border(frame.area(), model);
-    let details_widget = List::new(lines)
+    let paragraph = Paragraph::new(text)
+        .wrap(Wrap::default())
         .block(block)
-        .highlight_style(Style::new().underlined())
-        .scroll_padding(1);
+        .scroll((*vertical_scroll_offset, 0));
     if let Some(p) = cursor_position {
         frame.set_cursor_position(p)
     }
-    frame.render_stateful_widget(details_widget, frame.area(), list_state);
+    frame.render_widget(paragraph, frame.area());
 }

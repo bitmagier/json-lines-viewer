@@ -28,7 +28,7 @@ pub struct ModelViewState {
     pub main_window_list_state: ListState,
     pub object_detail_list_state: ListState,
     pub selected_object_detail_field_name: Option<String>,
-    pub value_screen_list_state: ListState,
+    pub value_screen_vertical_scroll_offset: u16,
 }
 impl Default for ModelViewState {
     fn default() -> Self {
@@ -36,7 +36,7 @@ impl Default for ModelViewState {
             main_window_list_state: ListState::default().with_selected(Some(0)),
             object_detail_list_state: ListState::default().with_selected(Some(0)),
             selected_object_detail_field_name: None,
-            value_screen_list_state: ListState::default(),
+            value_screen_vertical_scroll_offset: 0,
         }
     }
 }
@@ -132,12 +132,12 @@ impl<'a> Model<'a> {
                         }
                         Message::CharacterInput(c) => {
                             self.find_task.as_mut().unwrap().add_search_char(c);
-                            self.find();
+                            self.find_next(false);
                             (self, None)
                         }
                         Message::Backspace => {
                             self.find_task.as_mut().unwrap().remove_search_char();
-                            self.find();
+                            self.find_next(false);
                             (self, None)
                         }
                         Message::ScrollUp => {
@@ -145,12 +145,11 @@ impl<'a> Model<'a> {
                             (self, None)
                         }
                         Message::ScrollDown => {
-                            self.find_next();
+                            self.find_next(true);
                             (self, None)
                         }
                         Message::Enter => {
-                            self.find();
-                            (self, None)
+                            (self, Some(Message::ScrollDown))
                         }
                         Message::Exit => {
                             self.find_task = None;
@@ -283,25 +282,25 @@ impl<'a> Model<'a> {
                         },
                         Screen::ValueDetails => match msg {
                             Message::ScrollUp => {
-                                self.view_state.value_screen_list_state.scroll_up_by(1);
+                                self.view_state.value_screen_vertical_scroll_offset = self.view_state.value_screen_vertical_scroll_offset.saturating_sub(1);
                                 (self, None)
                             }
                             Message::ScrollDown => {
-                                self.view_state.value_screen_list_state.scroll_down_by(1);
+                                self.view_state.value_screen_vertical_scroll_offset += 1; // value is corrected during rendering
                                 (self, None)
                             }
                             Message::PageUp => {
-                                self.view_state.value_screen_list_state.scroll_up_by(self.page_len());
+                                self.view_state.value_screen_vertical_scroll_offset = self.view_state.value_screen_vertical_scroll_offset.saturating_sub(self.page_len());
                                 (self, None)
                             }
                             Message::PageDown => {
-                                self.view_state.value_screen_list_state.scroll_down_by(self.page_len());
+                                self.view_state.value_screen_vertical_scroll_offset += self.page_len(); // value is corrected during rendering
                                 (self, None)
                             }
-                            Message::OpenFindTask => {
-                                self.find_task = Some(FindTask::default());
-                                (self, None)
-                            }
+                            // Message::OpenFindTask => {
+                            //     self.find_task = Some(FindTask::default());
+                            //     (self, None)
+                            // }
                             Message::Exit => {
                                 self.switch_screen(Screen::ObjectDetails);
                                 (self, None)
@@ -367,8 +366,8 @@ impl<'a> Model<'a> {
     }
 
     /// returns JSON object lines and keys in rendered order
-    pub fn create_line_details_screen_content(&self) -> (Vec<String>, Vec<String>) {
-        let line_idx = self.view_state.main_window_list_state.selected().expect("we should find a a selected field");
+    pub fn produce_line_details_screen_content(&self) -> (Vec<String>, Vec<String>) {
+        let line_idx = self.view_state.main_window_list_state.selected().expect("we should find a a selected line");
         self.raw_json_lines.lines[line_idx].produce_rendered_fields_as_list(&self.props.fields_order)
     }
 
@@ -416,7 +415,7 @@ impl<'a> Model<'a> {
         "".into()
     }
 
-    fn page_len(&self) -> u16 {
+    pub fn page_len(&self) -> u16 {
         self.terminal_size.height.saturating_sub(2)
     }
 
@@ -427,16 +426,12 @@ impl<'a> Model<'a> {
         };
     }
 
-    fn find(&mut self) {
-        self._find(false)
-    }
 
-    fn find_next(&mut self) {
-        self._find(true)
-    }
-
-    fn _find(&mut self, skip_current_line: bool) {
+    fn find_next(&mut self, skip_current_line: bool) {
         let mut find_task = self.find_task.clone().expect("find task should be set");
+        if find_task.found.is_none() {
+            find_task.found = Some(false);
+        };
 
         match self.active_screen {
             Screen::Done => (),
@@ -445,10 +440,6 @@ impl<'a> Model<'a> {
                 if skip_current_line {
                     start_line_num += 1
                 }
-
-                if find_task.found.is_none() {
-                    find_task.found = Some(false);
-                };
                 for (idx, line) in self.raw_json_lines.lines[start_line_num..].iter().enumerate() {
                     if line.content.contains(&find_task.search_string) {
                         find_task.found = Some(true);
@@ -462,11 +453,7 @@ impl<'a> Model<'a> {
                 if skip_current_line {
                     start_line_num += 1
                 }
-
-                if find_task.found.is_none() {
-                    find_task.found = Some(false);
-                };
-                let (lines, field_names) = self.create_line_details_screen_content();
+                let (lines, field_names) = self.produce_line_details_screen_content();
                 for (idx, line) in lines[start_line_num..].iter().enumerate() {
                     if line.contains(&find_task.search_string) {
                         find_task.found = Some(true);
@@ -484,12 +471,15 @@ impl<'a> Model<'a> {
     }
 
     fn find_previous(&mut self) {
-        let find_task = self.find_task.as_mut().expect("find task should be set");
+        let mut find_task = self.find_task.clone().expect("find task should be set");
+        if find_task.found.is_none() {
+            find_task.found = Some(false);
+        };
+
         match self.active_screen {
             Screen::Done => {}
             Screen::Main => {
                 let start_line_num = self.view_state.main_window_list_state.selected().unwrap_or(self.view_state.main_window_list_state.offset());
-                find_task.found = Some(false);
                 for (idx, line) in self.raw_json_lines.lines[..start_line_num].iter().rev().enumerate() {
                     if line.content.contains(&find_task.search_string) {
                         find_task.found = Some(true);
@@ -498,9 +488,22 @@ impl<'a> Model<'a> {
                     }
                 }
             }
-            Screen::ObjectDetails => {}
+            Screen::ObjectDetails => {
+                let start_line_num = self.view_state.object_detail_list_state.selected().unwrap_or(self.view_state.object_detail_list_state.offset());
+                let (lines, field_names) = self.produce_line_details_screen_content();
+                for (idx, line) in lines[..start_line_num].iter().rev().enumerate() {
+                    if line.contains(&find_task.search_string) {
+                        find_task.found = Some(true);
+                        self.view_state.object_detail_list_state.select(Some(start_line_num - 1 - idx));
+                        let selected_field_name = field_names[start_line_num - 1 - idx].clone();
+                        self.view_state.selected_object_detail_field_name = Some(selected_field_name);
+                        break;
+                    }
+                }
+            }
             Screen::ValueDetails => {}
         }
+        self.find_task = Some(find_task);
     }
 }
 

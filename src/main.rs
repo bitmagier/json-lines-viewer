@@ -3,7 +3,7 @@ mod event;
 mod model;
 mod props;
 mod raw_json_lines;
-mod tui;
+mod terminal;
 
 use crate::model::{Model, Screen};
 use crate::props::Props;
@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 #[command(version, about, long_about = Some("JSON Lines Viewer - Terminal-UI to view application logs in 'Json line format' or Zip files containing such files.\n\
                                                 \n\
                                                 Navigation: Cursor keys, PageUp/Down, Enter/Esc.\n\
-                                                Search content: Ctrl-f or '/' and navigate to next/previous finding via Cursor Down/Up.\n\
+                                                Search content: Ctrl-f or '/' and navigate to next/previous finding via cursor Down/Up.\n\
                                                 Save current settings: Ctrl-s (e.g. field order. Settings come from commandline arguments and a previously saved config file)"))]
 struct Args {
     /// JSON line input files - `.json` or `.zip` files(s) containing `.json` files
@@ -40,14 +40,14 @@ fn main() -> anyhow::Result<()> {
 
     let lines = load_files(&args.files)?;
 
-    tui::install_panic_hook();
-    let mut terminal = tui::init_terminal()?;
+    terminal::install_panic_hook();
+    let mut terminal = terminal::init_terminal()?;
 
     let mut model = Model::new(props, terminal.size().map_err(|e| anyhow!("{e}"))?, &lines);
 
     while model.active_screen != Screen::Done {
         // Render the current view
-        terminal.draw(|f| tui::view(&mut model, f)).map_err(|e| anyhow!("{e}"))?;
+        terminal.draw(|f| terminal::view(&mut model, f)).map_err(|e| anyhow!("{e}"))?;
 
         // Handle events and map to a Message
         let mut current_msg = event::handle_event(&model)?;
@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    tui::restore_terminal()?;
+    terminal::restore_terminal()?;
     Ok(())
 }
 
@@ -124,20 +124,3 @@ fn load_lines_from_zip(
     }
     Ok(())
 }
-
-
-// Version 1
-// TODO feature: search including jump to NEXT and PREVIOUS hit
-//  - search main screen by '/'
-//  - search object details screen by '/'
-//  - search Value Details screen by '/'
-
-// Version 2
-// TODO generalize viewer to any kind of json and any object depth
-
-// Maybe
-// TODO maybe feature: settings screen
-// TODO maybe feature: highlight lines by text / regexp search string
-// TODO maybe feature: Use Memory Mapped Files for RawJsonLines
-// TODO maybe feature: possibility to sort lines by one or more field values
-// TODO maybe feature: highlight certain field-values
