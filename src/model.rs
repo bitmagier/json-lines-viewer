@@ -372,15 +372,19 @@ impl<'a> Model<'a> {
     }
 
     pub fn render_status_line_left(&self) -> String {
-        match self.view_state.main_window_list_state.selected() {
-            Some(line_nr) if self.raw_json_lines.lines.len() > line_nr => {
-                let raw_line = &self.raw_json_lines.lines[line_nr];
-                let source_name = self.raw_json_lines.source_name(raw_line.source_id).expect("invalid source id");
-                format!("{}:{}", source_name, raw_line.line_nr)
-            }
-            _ => String::new(),
-        }
+        let Some(line_nr) = self.view_state.main_window_list_state.selected() else {
+            return "".into();
+        };
+
+        let Some(raw_line) = self.raw_json_lines.lines.get(line_nr) else {
+            return "".into();
+        };
+
+        let source_name = self.raw_json_lines.source_name(raw_line.source_id).expect("invalid source id");
+
+        format!("{}:{}", source_name, raw_line.line_nr)
     }
+
     pub fn render_status_line_right(&self) -> String {
         self.last_action_result.clone()
     }
