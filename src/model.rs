@@ -8,7 +8,6 @@ use std::cell::Cell;
 use std::cmp;
 use std::num::NonZero;
 use std::ops::Add;
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Model<'a> {
@@ -548,19 +547,15 @@ impl<'a> Iterator for ModelIntoIter<'a> {
     type Item = ListItem<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.model.raw_json_lines.lines.len() {
-            None
-        } else {
-            let raw_line = &self.model.raw_json_lines.lines[self.index];
-            let json: Rc<serde_json::Value> = Rc::new(serde_json::from_str(&raw_line.content).expect("invalid json"));
-            let line = match json.as_ref() {
-                serde_json::Value::Object(o) => self.model.render_json_line(o),
-                e => Line::from(format!("{e}")),
-            };
+        let raw_line = self.model.raw_json_lines.lines.get(self.index)?;
+        let json = serde_json::from_str::<serde_json::Value>(&raw_line.content).expect("invalid json");
+        let line = match json {
+            serde_json::Value::Object(o) => self.model.render_json_line(&o),
+            e => Line::from(format!("{e}")),
+        };
 
-            self.index += 1;
-            Some(ListItem::new(line))
-        }
+        self.index += 1;
+        Some(ListItem::new(line))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
