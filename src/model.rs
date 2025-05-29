@@ -522,7 +522,7 @@ pub struct ModelIntoIter<'a> {
     index: usize,
 }
 
-impl<'a> ModelIntoIter<'a> {
+impl ModelIntoIter<'_> {
     // light version of Self::next() that simply skips the item.
     // returns true if the item was skipped, false if there are no more items
     fn skip_item(&mut self) -> bool {
