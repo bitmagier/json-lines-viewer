@@ -1,22 +1,25 @@
 use crate::model::{Message, Model};
+use anyhow::Context;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 use ratatui::prelude::Size;
 use std::time::Duration;
 
 pub fn handle_event(_: &Model) -> anyhow::Result<Option<Message>> {
-    if event::poll(Duration::from_millis(250))? {
-        match event::read()? {
-            Event::Key(key) if key.kind == event::KeyEventKind::Press => {
-                return Ok(handle_key(key));
-            }
-            Event::Resize(cols, rows) => {
-                return Ok(handle_resize(cols, rows));
-            }
-            _ => (),
-        }
+    let event_available = event::poll(Duration::from_millis(250)).context("failed to poll event")?;
+
+    if !event_available {
+        return Ok(None);
     }
-    Ok(None)
+
+    let event = event::read().context("failed to read event")?;
+    let message = match event {
+        Event::Key(key) if key.kind == event::KeyEventKind::Press => handle_key(key),
+        Event::Resize(cols, rows) => handle_resize(cols, rows),
+        _ => None,
+    };
+
+    Ok(message)
 }
 
 fn handle_key(key: event::KeyEvent) -> Option<Message> {
