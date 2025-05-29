@@ -26,12 +26,11 @@ impl Props {
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
-        match Self::config_file_path() {
-            None => Err(anyhow!("Config dir not found")),
-            Some(f) => {
-                std::fs::write(&f, toml::to_string_pretty(self)?)?;
-                Ok(())
-            }
-        }
+        let f = Self::config_file_path().context("Config dir not found")?;
+        let toml = toml::to_string_pretty(self)?;
+
+        std::fs::write(&f, toml)?;
+
+        Ok(())
     }
 }
