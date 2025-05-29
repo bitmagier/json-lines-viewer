@@ -23,34 +23,34 @@ pub fn handle_event(_: &Model) -> anyhow::Result<Option<Message>> {
 }
 
 fn handle_key(key: event::KeyEvent) -> Option<Message> {
-    match key.modifiers {
+    Some(match key.modifiers {
         KeyModifiers::NONE => match key.code {
-            KeyCode::Home => Some(Message::First),
-            KeyCode::End => Some(Message::Last),
-            KeyCode::Up => Some(Message::ScrollUp),
-            KeyCode::Down => Some(Message::ScrollDown),
-            KeyCode::PageUp => Some(Message::PageUp),
-            KeyCode::PageDown => Some(Message::PageDown),
-            KeyCode::Left => Some(Message::ScrollLeft),
-            KeyCode::Right => Some(Message::ScrollRight),
-            KeyCode::Enter => Some(Message::Enter),
-            KeyCode::Esc => Some(Message::Exit),
-            KeyCode::Char('/') => Some(Message::OpenFindTask),
-            KeyCode::Backspace => Some(Message::Backspace),
-            KeyCode::Char(c) => Some(Message::CharacterInput(c)),
-            _ => None,
+            KeyCode::Home => Message::First,
+            KeyCode::End => Message::Last,
+            KeyCode::Up => Message::ScrollUp,
+            KeyCode::Down => Message::ScrollDown,
+            KeyCode::PageUp => Message::PageUp,
+            KeyCode::PageDown => Message::PageDown,
+            KeyCode::Left => Message::ScrollLeft,
+            KeyCode::Right => Message::ScrollRight,
+            KeyCode::Enter => Message::Enter,
+            KeyCode::Esc => Message::Exit,
+            KeyCode::Char('/') => Message::OpenFindTask,
+            KeyCode::Backspace => Message::Backspace,
+            KeyCode::Char(c) => Message::CharacterInput(c),
+            _ => return None,
         },
         KeyModifiers::SHIFT => match key.code {
-            KeyCode::Char(c) => Some(Message::CharacterInput(c)),
-            _ => None
-        }
-        KeyModifiers::CONTROL => match key.code {
-            KeyCode::Char('s') => Some(Message::SaveSettings),
-            KeyCode::Char('f') => Some(Message::OpenFindTask),
-            _ => None,
+            KeyCode::Char(c) => Message::CharacterInput(c),
+            _ => return None,
         },
-        _ => None,
-    }
+        KeyModifiers::CONTROL => match key.code {
+            KeyCode::Char('s') => Message::SaveSettings,
+            KeyCode::Char('f') => Message::OpenFindTask,
+            _ => return None,
+        },
+        _ => return None,
+    })
 }
 
 fn handle_resize(
