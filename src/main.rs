@@ -12,7 +12,7 @@ use anyhow::anyhow;
 use clap::Parser;
 use std::fs::File;
 use std::io;
-use std::io::{BufRead, Write};
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
@@ -77,12 +77,12 @@ fn init_props(args: &Args) -> anyhow::Result<Props> {
 
 fn load_files(files: &[PathBuf]) -> anyhow::Result<RawJsonLines> {
     let mut raw_lines = RawJsonLines::default();
-    for f in files {
-        let path = PathBuf::from(f);
-        match path.extension().map(|e| e.to_str()) {
-            Some(Some("json")) => load_lines_from_json(&mut raw_lines, &path)?,
-            Some(Some("zip")) => load_lines_from_zip(&mut raw_lines, &path)?,
-            _ => writeln!(&mut io::stderr(), "unknown file extension: '{}'", path.to_string_lossy()).expect("failed to write to stderr"),
+
+    for path in files {
+        match path.extension().and_then(|e| e.to_str()) {
+            Some("json") => load_lines_from_json(&mut raw_lines, path).with_context(|| format!("failed to load lines from {path:?}"))?,
+            Some("zip") => load_lines_from_zip(&mut raw_lines, path).with_context(|| format!("failed to load lines from {path:?}"))?,
+            _ => eprintln!("unknown file extension: '{}'", path.to_string_lossy()),
         }
     }
 
