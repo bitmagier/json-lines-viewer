@@ -11,7 +11,6 @@ use ratatui::{
     Terminal,
 };
 use serde_json::Value;
-use std::str::FromStr;
 use std::{cmp, io::stdout, panic};
 
 pub fn init_terminal() -> anyhow::Result<Terminal<impl Backend>> {
@@ -120,15 +119,17 @@ fn render_value_details_screen(
 ) {
     let line_idx = model.view_state.main_window_list_state.selected().expect("we should find a a selected line");
     let raw_line = &model.raw_json_lines.lines[line_idx].content;
-    let text = if let Value::Object(o) = serde_json::Value::from_str(raw_line).expect("invalid json") {
-        let value = o.get(model.view_state.selected_object_detail_field_name.as_ref().expect("should have a selected field"))
-            .expect("key should exist");
-        match value {
-            Value::String(s) => s.clone(),
-            _ => format!("{value}")
-        }
-    } else {
-        panic!("should find a json object")
+    let field_name = model.view_state.selected_object_detail_field_name.as_ref().expect("should have a selected field");
+
+    let value = raw_line.parse::<serde_json::Value>().expect("invalid json");
+    let Value::Object(o) = value else {
+        panic!("should find a json object");
+    };
+
+    let field_value = o.get(field_name).expect("key should exist");
+    let text = match field_value {
+        Value::String(s) => s.clone(),
+        _ => format!("{field_value}")
     };
 
     // correct scroll line offset – so that current text lines are always on the screen
@@ -141,8 +142,10 @@ fn render_value_details_screen(
         .wrap(Wrap::default())
         .block(block)
         .scroll((*vertical_scroll_offset, 0));
+
     if let Some(p) = cursor_position {
         frame.set_cursor_position(p)
     }
+
     frame.render_widget(paragraph, frame.area());
 }
