@@ -404,15 +404,18 @@ impl<'a> Model<'a> {
     }
 
     pub fn render_find_task_line_right(&self) -> Line {
-        if let Some(t) = self.find_task.as_ref() {
-            if let Some(state) = t.found {
-                return match state {
-                    true => "found".to_owned().into(),
-                    false => "NOT found".to_owned().into(),
-                }
-            }
+        let Some(task) = &self.find_task else {
+            return "".into();
+        };
+
+        let Some(found) = task.found else {
+            return "".into();
+        };
+
+        match found {
+            true => "found".into(),
+            false => "NOT found".into(),
         }
-        "".into()
     }
 
     pub fn page_len(&self) -> u16 {
