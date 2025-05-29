@@ -8,7 +8,7 @@ mod terminal;
 use crate::model::{Model, Screen};
 use crate::props::Props;
 use crate::raw_json_lines::{RawJsonLines, SourceName};
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use std::fs::File;
 use std::io;
@@ -116,24 +116,34 @@ fn load_lines_from_zip(
     raw_lines: &mut RawJsonLines,
     path: &Path,
 ) -> anyhow::Result<()> {
-    let zip_file = File::open(path)?;
-    let mut archive = zip::ZipArchive::new(zip_file)?;
+    let zip_file = File::open(path).context("failed to open zip")?;
+    let mut archive = zip::ZipArchive::new(zip_file).context("failed to parse zip")?;
 
     for i in 0..archive.len() {
-        let f = archive.by_index(i)?;
-        if f.is_file() && f.name().ends_with(".json") {
-            let json_file = f.name().to_string();
-            for (line_nr, line) in io::BufReader::new(f).lines().enumerate() {
-                raw_lines.push(
-                    SourceName::JsonInZip {
-                        zip_file: path.file_name().unwrap().to_string_lossy().into(),
-                        json_file: json_file.clone(),
-                    },
-                    line_nr + 1,
-                    line?,
-                );
-            }
+        let f = archive
+            .by_index(i)
+            .with_context(|| format!("failed to get file with index {i} from zip"))?;
+
+        if !f.is_file() || !f.name().ends_with(".json") {
+            continue;
+        }
+
+        let json_file = f.name().to_string();
+        let f = io::BufReader::new(f);
+
+        for (line_nr, line) in f.lines().enumerate() {
+            let line = line.context("failed to read line from file in zip")?;
+            let zip_file = path
+                .file_name()
+                .context("BUG: zip path is missing filename")?
+                .to_string_lossy()
+                .into();
+            let json_file = json_file.clone();
+            let source_name = SourceName::JsonInZip { zip_file, json_file };
+
+            raw_lines.push(source_name, line_nr + 1, line);
         }
     }
+
     Ok(())
 }
