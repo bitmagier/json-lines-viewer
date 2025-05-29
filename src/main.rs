@@ -10,6 +10,8 @@ use crate::props::Props;
 use crate::raw_json_lines::{RawJsonLines, SourceName};
 use anyhow::{Context, anyhow};
 use clap::Parser;
+use ratatui::prelude::Backend;
+use ratatui::Terminal;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -41,9 +43,19 @@ fn main() -> anyhow::Result<()> {
     let lines = load_files(&args.files).context("failed to load files")?;
 
     terminal::install_panic_hook();
-    let mut terminal = terminal::init_terminal().context("faild to initialize terminal")?;
-    let terminal_size = terminal.size().map_err(|e| anyhow!("{e}")).context("failed to get terminal size")?;
+    let terminal = terminal::init_terminal().context("faild to initialize terminal")?;
 
+    if let Err(err) = run_app(terminal, props, lines) {
+        eprintln!("{err:?}");
+    }
+
+    terminal::restore_terminal().context("failed to restore terminal state")?;
+
+    Ok(())
+}
+
+fn run_app(mut terminal: Terminal<impl Backend>, props: Props, lines: RawJsonLines) -> Result<(), anyhow::Error> {
+    let terminal_size = terminal.size().map_err(|e| anyhow!("{e}")).context("failed to get terminal size")?;
     let mut model = Model::new(props, terminal_size, &lines);
 
     while model.active_screen != Screen::Done {
@@ -64,10 +76,9 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    terminal::restore_terminal().context("failed to restore terminal state")?;
-
     Ok(())
 }
+
 
 fn init_props(args: &Args) -> anyhow::Result<Props> {
     let mut props = Props::init().context("failed to load props")?;
