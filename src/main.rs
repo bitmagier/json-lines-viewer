@@ -8,7 +8,7 @@ mod terminal;
 use crate::model::{Model, Screen};
 use crate::props::Props;
 use crate::raw_json_lines::{RawJsonLines, SourceName};
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::Parser;
 use std::fs::File;
 use std::io;
@@ -48,10 +48,13 @@ fn main() -> anyhow::Result<()> {
 
     while model.active_screen != Screen::Done {
         // Render the current view
-        terminal.draw(|f| terminal::view(&mut model, f)).map_err(|e| anyhow!("{e}")).context("failed to draw to terminal")?;
+        terminal
+            .draw(|f| terminal::view(&mut model, f))
+            .map_err(|e| anyhow!("{e}"))
+            .context("failed to draw to terminal")?;
 
         // Handle events and map to a Message
-        let mut current_msg = event::handle_event(&model)?;
+        let mut current_msg = event::handle_event(&model).context("failed to handle event")?;
 
         // Process updates as long as they return a non-None message
         while let Some(msg) = current_msg {
@@ -61,7 +64,8 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    terminal::restore_terminal()?;
+    terminal::restore_terminal().context("failed to restore terminal state")?;
+
     Ok(())
 }
 
