@@ -386,21 +386,24 @@ impl<'a> Model<'a> {
     }
 
     pub fn render_find_task_line_left(&self) -> Line {
-        if let Some(task) = self.find_task.as_ref() {
-            let color = match task.found {
-                None => Color::default(),
-                Some(false) => Color::Red,
-                Some(true) => Color::Green
-            };
-            " [".to_span().set_style(color)
-                .add("Find ".to_span())
-                .add("🔍".to_span())
-                .add(": ".bold())
-                .add(task.search_string.to_span().bold())
-                .add("  ] ".to_span().set_style(color)).to_owned()
-        } else {
-            Line::raw("").to_owned()
-        }
+        let Some(task) = &self.find_task else {
+            return "".into();
+        };
+
+        let color = match task.found {
+            None => Color::default(),
+            Some(false) => Color::Red,
+            Some(true) => Color::Green,
+        };
+
+        " [".to_span()
+            .set_style(color)
+            .add("Find ".to_span())
+            .add("🔍".to_span())
+            .add(": ".bold())
+            .add(task.search_string.to_span().bold())
+            .add("  ] ".to_span().set_style(color))
+            .to_owned()
     }
 
     pub fn render_find_task_line_right(&self) -> Line {
