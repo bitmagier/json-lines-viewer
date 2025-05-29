@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
     let lines = load_files(&args.files).context("failed to load files")?;
 
     terminal::install_panic_hook();
-    let terminal = terminal::init_terminal().context("faild to initialize terminal")?;
+    let terminal = terminal::init_terminal().context("failed to initialize terminal")?;
 
     if let Err(err) = run_app(terminal, props, lines) {
         eprintln!("{err:?}");
