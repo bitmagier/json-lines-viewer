@@ -36,18 +36,19 @@ struct Args {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let props: Props = init_props(&args)?;
+    let props: Props = init_props(&args).context("failed to init props")?;
 
-    let lines = load_files(&args.files)?;
+    let lines = load_files(&args.files).context("failed to load files")?;
 
     terminal::install_panic_hook();
-    let mut terminal = terminal::init_terminal()?;
+    let mut terminal = terminal::init_terminal().context("faild to initialize terminal")?;
+    let terminal_size = terminal.size().map_err(|e| anyhow!("{e}")).context("failed to get terminal size")?;
 
-    let mut model = Model::new(props, terminal.size().map_err(|e| anyhow!("{e}"))?, &lines);
+    let mut model = Model::new(props, terminal_size, &lines);
 
     while model.active_screen != Screen::Done {
         // Render the current view
-        terminal.draw(|f| terminal::view(&mut model, f)).map_err(|e| anyhow!("{e}"))?;
+        terminal.draw(|f| terminal::view(&mut model, f)).map_err(|e| anyhow!("{e}")).context("failed to draw to terminal")?;
 
         // Handle events and map to a Message
         let mut current_msg = event::handle_event(&model)?;
@@ -93,9 +94,21 @@ fn load_lines_from_json(
     raw_lines: &mut RawJsonLines,
     path: &Path,
 ) -> anyhow::Result<()> {
-    for (line_nr, line) in io::BufReader::new(File::open(path)?).lines().enumerate() {
-        raw_lines.push(SourceName::JsonFile(path.file_name().unwrap().to_string_lossy().into()), line_nr + 1, line?);
+    let json_file = File::open(path).context("failed to open json")?;
+    let json_file = io::BufReader::new(json_file);
+
+    for (line_nr, line) in json_file.lines().enumerate() {
+        let line = line.context("failed to read json line")?;
+        let file_name = path
+            .file_name()
+            .context("BUG: json path is missing filename")?
+            .to_string_lossy()
+            .into();
+        let source_name = SourceName::JsonFile(file_name);
+
+        raw_lines.push(source_name, line_nr + 1, line);
     }
+
     Ok(())
 }
 
