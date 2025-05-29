@@ -1,5 +1,6 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Default, Clone)]
@@ -14,12 +15,14 @@ impl Props {
     }
 
     pub fn init() -> anyhow::Result<Props> {
-        match &Self::config_file_path() {
-            Some(f) if f.exists() => Ok(toml::from_str(
-                &std::fs::read_to_string(f).map_err(|e| anyhow!("'{}' - while reading file {}", e, f.to_string_lossy()))?,
-            )?),
-            _ => Ok(Props::default()),
-        }
+        let Some(f) = &Self::config_file_path().filter(|f| f.exists()) else {
+            return Ok(Props::default());
+        };
+
+        let props = fs::read_to_string(f).with_context(|| format!("failed to read config file {f:?}"))?;
+        let props = toml::from_str::<Props>(&props).context("failed to parse config file as toml")?;
+
+        Ok(props)
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
