@@ -66,13 +66,16 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn init_props(args: &Args) -> anyhow::Result<Props> {
-    let mut props = Props::init()?;
+    let mut props = Props::init().context("failed to load props")?;
+
     if let Some(e) = &args.field_order {
         props.fields_order = e.clone();
     }
+
     if let Some(e) = &args.suppressed_fields {
         props.fields_suppressed = e.clone();
     }
+
     Ok(props)
 }
 
