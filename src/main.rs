@@ -18,11 +18,11 @@ use std::io::BufRead;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = Some("JSON Lines Viewer - Terminal-UI to view application logs in 'Json line format' or Zip files containing such files.\n\
-                                                \n\
-                                                Navigation: Cursor keys, PageUp/Down, Enter/Esc.\n\
-                                                Search content: Ctrl-f or '/' and navigate to next/previous finding via cursor Down/Up.\n\
-                                                Save current settings: Ctrl-s (e.g. field order. Settings come from commandline arguments and a previously saved config file)"))]
+#[command(version, about, long_about = Some("JSON Lines Viewer - Terminal-UI to view JSON line files (e.g. application logs) or Zip files containing such files\n\
+                                            \n\
+                                            Navigation: Cursor keys, PageUp/Down, Enter/Esc.\n\
+                                            Search content: Ctrl-f or '/' and navigate to next/previous finding via cursor down/up. Leave search field with `Esc`.\n\
+                                            Save current settings: Ctrl-s (Settings may come from commandline options and a previously saved config file)"))]
 struct Args {
     /// JSON line input files - `.json` or `.zip` files(s) containing `.json` files
     files: Vec<PathBuf>,
@@ -98,7 +98,11 @@ fn load_files(files: &[PathBuf]) -> anyhow::Result<RawJsonLines> {
     let mut raw_lines = RawJsonLines::default();
 
     for path in files {
-        match path.extension().and_then(|e| e.to_str()) {
+        match path.extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_ascii_lowercase())
+            .as_deref()
+        {
             Some("json") => load_lines_from_json(&mut raw_lines, path).with_context(|| format!("failed to load lines from {path:?}"))?,
             Some("zip") => load_lines_from_zip(&mut raw_lines, path).with_context(|| format!("failed to load lines from {path:?}"))?,
             _ => eprintln!("unknown file extension: '{}'", path.to_string_lossy()),
@@ -142,7 +146,7 @@ fn load_lines_from_zip(
             .by_index(i)
             .with_context(|| format!("failed to get file with index {i} from zip"))?;
 
-        if !f.is_file() || !f.name().ends_with(".json") {
+        if !f.is_file() || !f.name().to_ascii_lowercase().ends_with(".json") {
             continue;
         }
 

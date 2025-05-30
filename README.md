@@ -1,6 +1,6 @@
 JSON Lines Viewer
 ---
-A terminal-UI to browse through JSON-line files.
+Terminal-UI to view JSON line files (e.g. application logs) or Zip files containing such files
 
 _The main use case is to support the analysis of comprehensive application logs in 'Json line' format._
 
@@ -17,11 +17,11 @@ Download precompiled binary for your platform from Github.
 ## Usage
 
 ```
-JSON Lines Viewer - Terminal-UI to view application logs in 'Json line format' or Zip files containing such files.
+JSON Lines Viewer - Terminal-UI to view '.json' line files (e.g. application logs) or Zip files containing such files
 
 Navigation: Cursor keys, PageUp/Down, Enter/Esc.
-Find content: Ctrl-f or '/' and navigate to next/previous finding via cursor Down/Up.
-Save current settings: Ctrl-s (e.g. field order. Settings come from commandline arguments and a previously saved config file)
+Search content: Ctrl-f or '/' and navigate to next/previous finding via cursor down/up. Leave search field with `Esc`.
+Save current settings: Ctrl-s (Settings may come from commandline options and a previously saved config file)
 
 Usage: json-lines-viewer [OPTIONS] [FILES]...
 
@@ -38,13 +38,15 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
 ```
 
 ### Example
 ```
-json-lines-viewer --field-order @timestamp,level,application_id,message,application_version,land,host_ipv4,host_name,thread_name,correlation_id,logger_name logs-export-XXXX.zip
+json-lines-viewer --field-order @timestamp,level,application_id,message,application_version,land,host_ipv4,host_name,thread_name,correlation_id,logger_name logs-export-xxxxx.zip
 ```
-
 
 ## Program navigation / usage
 
