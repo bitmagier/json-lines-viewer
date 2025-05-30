@@ -8,7 +8,6 @@ use std::cell::Cell;
 use std::cmp;
 use std::num::NonZero;
 use std::ops::Add;
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Model<'a> {
@@ -372,47 +371,57 @@ impl<'a> Model<'a> {
     }
 
     pub fn render_status_line_left(&self) -> String {
-        match self.view_state.main_window_list_state.selected() {
-            Some(line_nr) if self.raw_json_lines.lines.len() > line_nr => {
-                let raw_line = &self.raw_json_lines.lines[line_nr];
-                let source_name = self.raw_json_lines.source_name(raw_line.source_id).expect("invalid source id");
-                format!("{}:{}", source_name, raw_line.line_nr)
-            }
-            _ => String::new(),
-        }
+        let Some(line_nr) = self.view_state.main_window_list_state.selected() else {
+            return "".into();
+        };
+
+        let Some(raw_line) = self.raw_json_lines.lines.get(line_nr) else {
+            return "".into();
+        };
+
+        let source_name = self.raw_json_lines.source_name(raw_line.source_id).expect("invalid source id");
+
+        format!("{}:{}", source_name, raw_line.line_nr)
     }
+
     pub fn render_status_line_right(&self) -> String {
         self.last_action_result.clone()
     }
 
     pub fn render_find_task_line_left(&self) -> Line {
-        if let Some(task) = self.find_task.as_ref() {
-            let color = match task.found {
-                None => Color::default(),
-                Some(false) => Color::Red,
-                Some(true) => Color::Green
-            };
-            " [".to_span().set_style(color)
-                .add("Find ".to_span())
-                .add("🔍".to_span())
-                .add(": ".bold())
-                .add(task.search_string.to_span().bold())
-                .add("  ] ".to_span().set_style(color)).to_owned()
-        } else {
-            Line::raw("").to_owned()
-        }
+        let Some(task) = &self.find_task else {
+            return "".into();
+        };
+
+        let color = match task.found {
+            None => Color::default(),
+            Some(false) => Color::Red,
+            Some(true) => Color::Green,
+        };
+
+        " [".to_span()
+            .set_style(color)
+            .add("Find ".to_span())
+            .add("🔍".to_span())
+            .add(": ".bold())
+            .add(task.search_string.to_span().bold())
+            .add("  ] ".to_span().set_style(color))
+            .to_owned()
     }
 
     pub fn render_find_task_line_right(&self) -> Line {
-        if let Some(t) = self.find_task.as_ref() {
-            if let Some(state) = t.found {
-                return match state {
-                    true => "found".to_owned().into(),
-                    false => "NOT found".to_owned().into(),
-                }
-            }
+        let Some(task) = &self.find_task else {
+            return "".into();
+        };
+
+        let Some(found) = task.found else {
+            return "".into();
+        };
+
+        match found {
+            true => "found".into(),
+            false => "NOT found".into(),
         }
-        "".into()
     }
 
     pub fn page_len(&self) -> u16 {
@@ -512,7 +521,7 @@ pub struct ModelIntoIter<'a> {
     index: usize,
 }
 
-impl<'a> ModelIntoIter<'a> {
+impl ModelIntoIter<'_> {
     // light version of Self::next() that simply skips the item.
     // returns true if the item was skipped, false if there are no more items
     fn skip_item(&mut self) -> bool {
@@ -538,19 +547,15 @@ impl<'a> Iterator for ModelIntoIter<'a> {
     type Item = ListItem<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.model.raw_json_lines.lines.len() {
-            None
-        } else {
-            let raw_line = &self.model.raw_json_lines.lines[self.index];
-            let json: Rc<serde_json::Value> = Rc::new(serde_json::from_str(&raw_line.content).expect("invalid json"));
-            let line = match json.as_ref() {
-                serde_json::Value::Object(o) => self.model.render_json_line(o),
-                e => Line::from(format!("{e}")),
-            };
+        let raw_line = self.model.raw_json_lines.lines.get(self.index)?;
+        let json = serde_json::from_str::<serde_json::Value>(&raw_line.content).expect("invalid json");
+        let line = match json {
+            serde_json::Value::Object(o) => self.model.render_json_line(&o),
+            e => Line::from(format!("{e}")),
+        };
 
-            self.index += 1;
-            Some(ListItem::new(line))
-        }
+        self.index += 1;
+        Some(ListItem::new(line))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

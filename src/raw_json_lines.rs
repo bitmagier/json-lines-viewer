@@ -72,21 +72,22 @@ pub struct RawJsonLine {
 impl RawJsonLine {
     /// returns JSON object lines and keys in rendered order
     pub fn produce_rendered_fields_as_list(&self, key_order: &[String]) -> (Vec<String>, Vec<String>) {
-        if let serde_json::Value::Object(o) = serde_json::from_str(&self.content).expect("not a json value") {
+        let value = serde_json::from_str(&self.content).expect("not a json value");
 
-            let mut keys_in_rendered_order: Vec<_> = key_order.iter().filter(|&e| o.contains_key(e)).cloned().collect();
-            keys_in_rendered_order.extend(o.keys().filter(|&e| !key_order.contains(e)).cloned());
-
-            let mut list_items = vec![];
-
-            for k in &keys_in_rendered_order {
-                list_items.push(Self::render_attribute(k, o.get(k).unwrap()));
-            }
-
-            (list_items, keys_in_rendered_order)
-        } else {
+        let serde_json::Value::Object(o) = value else {
             panic!("line should be in json object format")
+        };
+
+        let mut keys_in_rendered_order: Vec<_> = key_order.iter().filter(|&e| o.contains_key(e)).cloned().collect();
+        keys_in_rendered_order.extend(o.keys().filter(|&e| !key_order.contains(e)).cloned());
+
+        let mut list_items = vec![];
+
+        for k in &keys_in_rendered_order {
+            list_items.push(Self::render_attribute(k, o.get(k).unwrap()));
         }
+
+        (list_items, keys_in_rendered_order)
     }
 
     fn render_attribute(key: &str, value: &serde_json::Value) -> String {
