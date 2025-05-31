@@ -12,16 +12,11 @@ _The main use case is to support the analysis of comprehensive application logs 
 - `cargo +nightly install json-lines-viewer`
 
 ### User way:
-Download precompiled binary for your platform from Github.
+Download precompiled binary for your platform from GitHub.
 
 ## Usage
-
 ```
-JSON Lines Viewer - Terminal-UI to view '.json' line files (e.g. application logs) or Zip files containing such files
-
-Navigation: Cursor keys, PageUp/Down, Enter/Esc.
-Search content: Ctrl-f or '/' and navigate to next/previous finding via cursor down/up. Leave search field with `Esc`.
-Save current settings: Ctrl-s (Settings may come from commandline options and a previously saved config file)
+JSON Lines Viewer – Terminal-UI to view JSON line files (e.g. application logs) or Zip files containing such files
 
 Usage: json-lines-viewer [OPTIONS] [FILES]...
 
@@ -41,16 +36,16 @@ Options:
 
   -V, --version
           Print version
+
+Program Navigation:
+  * Use cursor keys and page keys to scroll on a screen
+  * `Enter` opens a detail screen for the selected line; `Esc` goes back to the parent screen (also exits program on main screen)
+  * Use `Ctrl-f` to open a Find dialog; `Esc` leaves the Find dialog; `down/up` jumps to the next/previous finding; a match/miss is indicated by green/red brackets
+  * Use `Ctrl-s` to save current settings. Actual settings are always coming from commandline options and the config file if it exists
 ```
 
 ### Example
 ```
-json-lines-viewer --field-order @timestamp,level,application_id,message,application_version,land,host_ipv4,host_name,thread_name,correlation_id,logger_name logs-export-xxxxx.zip
+json-lines-viewer --field-order @timestamp,level,application_id,message,application_version,host_ipv4 logs-export-xxxxx.zip
 ```
 
-## Program navigation / usage
-
-- Use Cursor Keys and PageUp/PageDown to navigate on a page
-- Use `Enter` to go into details of a selected line and `Esc` to go back to a parent screen (also exits program on Main screen)
-- Use `Ctrl-f` opens a find dialog on the bottom to find lines containing a string. `Esc` leaves the find dialog. Use cursor Down/Up here to navigate to the next/previous finding.
-- Use `Ctrl-s` to save current settings. The actual settings are always coming from commandline options and a previously saved config file.
