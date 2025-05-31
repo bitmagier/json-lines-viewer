@@ -1,2 +1,4 @@
 max_width = 140
 fn_params_layout = "Vertical"
+fn_single_line = true
+imports_granularity = "Module"

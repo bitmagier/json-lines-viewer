@@ -8,7 +8,7 @@ mod terminal;
 use crate::model::{Model, Screen};
 use crate::props::Props;
 use crate::raw_json_lines::{RawJsonLines, SourceName};
-use anyhow::{Context, anyhow};
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use ratatui::prelude::Backend;
 use ratatui::Terminal;
@@ -17,12 +17,15 @@ use std::io;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 
+/// JSON Lines Viewer – Terminal-UI to view JSON line files (e.g. application logs) or Zip files containing such files
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = Some("JSON Lines Viewer - Terminal-UI to view JSON line files (e.g. application logs) or Zip files containing such files\n\
-                                            \n\
-                                            Navigation: Cursor keys, PageUp/Down, Enter/Esc.\n\
-                                            Search content: Ctrl-f or '/' and navigate to next/previous finding via cursor down/up. Leave search field with `Esc`.\n\
-                                            Save current settings: Ctrl-s (Settings may come from commandline options and a previously saved config file)"))]
+#[command(version, about, long_about, after_help=format!("\
+{style}Program Navigation:{style:#}
+  * Use cursor keys and page keys to scroll on a screen
+  * `Enter` opens a detail screen for the selected line; `Esc` goes back to the parent screen (also exits program on main screen)
+  * Use `Ctrl-f` to open a Find dialog; `Esc` leaves the Find dialog; `down/up` jumps to the next/previous finding; a match/miss is indicated by green/red brackets
+  * Use `Ctrl-s` to save current settings. Actual settings are always coming from commandline options and the config file if it exists
+", style=anstyle::Style::new().bold().underline()))]
 struct Args {
     /// JSON line input files - `.json` or `.zip` files(s) containing `.json` files
     files: Vec<PathBuf>,
@@ -54,7 +57,11 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_app(mut terminal: Terminal<impl Backend>, props: Props, lines: RawJsonLines) -> Result<(), anyhow::Error> {
+fn run_app(
+    mut terminal: Terminal<impl Backend>,
+    props: Props,
+    lines: RawJsonLines,
+) -> Result<(), anyhow::Error> {
     let terminal_size = terminal.size().map_err(|e| anyhow!("{e}")).context("failed to get terminal size")?;
     let mut model = Model::new(props, terminal_size, &lines);
 
@@ -78,7 +85,6 @@ fn run_app(mut terminal: Terminal<impl Backend>, props: Props, lines: RawJsonLin
 
     Ok(())
 }
-
 
 fn init_props(args: &Args) -> anyhow::Result<Props> {
     let mut props = Props::init().context("failed to load props")?;
