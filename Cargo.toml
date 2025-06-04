@@ -1,8 +1,8 @@
 [package]
 name = "json-lines-viewer"
-version = "0.4.5"
+version = "0.4.6"
 edition = "2024"
-description = "JSON Lines Viewer - Terminal-UI to view JSON line files (e.g. application logs) or Zip files containing such files"
+description = "JSON Lines Viewer - Terminal-UI to view JSON line files (e.g. application logs)"
 authors = ["bitmagier"]
 keywords = ["JSON", "viewer", "TUI"]
 license = "MIT"
