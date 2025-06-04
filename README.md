@@ -2,7 +2,7 @@ JSON Lines Viewer
 ---
 Terminal-UI to view JSON line files (e.g. application logs) or Zip files containing such files
 
-_The main use case is to support the analysis of comprehensive application logs in 'Json line' format._
+_The main use case is to support the analysis of comprehensive application logs in 'JSON line' format._
 
 
 ## Install
