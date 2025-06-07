@@ -101,6 +101,8 @@ fn render_line_details_screen(
 ) -> Option<String> {
     let (block, cursor_position) = produce_screen_border(frame.area(), model);
     let (list_items, keys_in_rendered_order) = model.produce_line_details_screen_content();
+    let list_items = list_items.into_iter()
+        .map(|e| Line::from(model.with_search_hits_marked(e)));
     let json_field_list = List::new(list_items)
         .block(block)
         .highlight_style(Style::new().underlined())
