@@ -1,6 +1,6 @@
 use crate::props::Props;
 use crate::raw_json_lines::RawJsonLines;
-use ratatui::prelude::{Color, Line, Size, Stylize};
+use ratatui::prelude::{Color, Line, Size, Span, Style, Stylize};
 use ratatui::style::Styled;
 use ratatui::text::ToSpan;
 use ratatui::widgets::{ListItem, ListState};
@@ -43,10 +43,13 @@ impl Default for ModelViewState {
 #[derive(Clone, Default)]
 pub struct FindTask {
     pub search_string: String,
-    pub found: Option<bool>
+    pub found: Option<bool>,
 }
 impl FindTask {
-    pub fn add_search_char(&mut self, c: char) {
+    pub fn add_search_char(
+        &mut self,
+        c: char,
+    ) {
         self.search_string.push(c);
         self.found = None;
     }
@@ -103,9 +106,7 @@ impl<'a> Model<'a> {
         }
     }
 
-    pub fn has_find_task(&self) -> bool {
-        self.find_task.is_some()
-    }
+    pub fn has_find_task(&self) -> bool { self.find_task.is_some() }
 
     pub fn updated(
         mut self,
@@ -147,9 +148,7 @@ impl<'a> Model<'a> {
                             self.find_next(true);
                             (self, None)
                         }
-                        Message::Enter => {
-                            (self, Some(Message::ScrollDown))
-                        }
+                        Message::Enter => (self, Some(Message::ScrollDown)),
                         Message::Exit => {
                             self.find_task = None;
                             (self, None)
@@ -281,7 +280,8 @@ impl<'a> Model<'a> {
                         },
                         Screen::ValueDetails => match msg {
                             Message::ScrollUp => {
-                                self.view_state.value_screen_vertical_scroll_offset = self.view_state.value_screen_vertical_scroll_offset.saturating_sub(1);
+                                self.view_state.value_screen_vertical_scroll_offset =
+                                    self.view_state.value_screen_vertical_scroll_offset.saturating_sub(1);
                                 (self, None)
                             }
                             Message::ScrollDown => {
@@ -289,7 +289,8 @@ impl<'a> Model<'a> {
                                 (self, None)
                             }
                             Message::PageUp => {
-                                self.view_state.value_screen_vertical_scroll_offset = self.view_state.value_screen_vertical_scroll_offset.saturating_sub(self.page_len());
+                                self.view_state.value_screen_vertical_scroll_offset =
+                                    self.view_state.value_screen_vertical_scroll_offset.saturating_sub(self.page_len());
                                 (self, None)
                             }
                             Message::PageDown => {
@@ -320,22 +321,46 @@ impl<'a> Model<'a> {
         self.find_task = None;
     }
 
+    pub fn with_search_hits_marked<'b>(
+        &self,
+        text: String,
+    ) -> Vec<Span<'b>> {
+        if let Some(t) = self.find_task.as_ref() && !t.search_string.is_empty(){
+            let mut i = 0;
+            let mut spans = vec![];
+
+            while let Some(hit) = text[i..].find(&t.search_string) {
+                spans.push(Span::from(text[i..i+hit].to_string()));
+                spans.push(Span::from(text[i+hit..i+hit+t.search_string.len()].to_string()).set_style(Self::find_matches_style()));
+                i = i+hit+t.search_string.len();
+            }
+
+            if i < text.len() {
+                spans.push(Span::from(text[i..].to_string()));
+            }
+
+            spans
+        } else {
+            vec![Span::from(text)]
+        }
+    }
+
     fn render_json_line<'x>(
         &self,
         m: &serde_json::Map<String, serde_json::Value>,
     ) -> Line<'x> {
-        fn render_property(
-            line: &mut Line,
-            k: &str,
-            v: &serde_json::Value,
-        ) {
+        let render_property = |line: &mut Line, k: &str, v: &serde_json::Value| {
             if line.iter().len() > 0 {
                 line.push_span(", ");
             }
-            line.push_span(k.to_owned().bold());
+            for e in self.with_search_hits_marked(k.to_owned()) {
+                line.push_span(e.bold());
+            }
             line.push_span(":".to_owned());
-            line.push_span(format!("{v}"));
-        }
+            for e in self.with_search_hits_marked(format!("{v}")) {
+                line.push_span(e)
+            }
+        };
 
         let mut line = Line::default();
         let mut num_fields = 0;
@@ -366,7 +391,11 @@ impl<'a> Model<'a> {
 
     /// returns JSON object lines and keys in rendered order
     pub fn produce_line_details_screen_content(&self) -> (Vec<String>, Vec<String>) {
-        let line_idx = self.view_state.main_window_list_state.selected().expect("we should find a a selected line");
+        let line_idx = self
+            .view_state
+            .main_window_list_state
+            .selected()
+            .expect("we should find a a selected line");
         self.raw_json_lines.lines[line_idx].produce_rendered_fields_as_list(&self.props.fields_order)
     }
 
@@ -384,9 +413,7 @@ impl<'a> Model<'a> {
         format!("{}:{}", source_name, raw_line.line_nr)
     }
 
-    pub fn render_status_line_right(&self) -> String {
-        self.last_action_result.clone()
-    }
+    pub fn render_status_line_right(&self) -> String { self.last_action_result.clone() }
 
     pub fn render_find_task_line_left(&self) -> Line {
         let Some(task) = &self.find_task else {
@@ -424,9 +451,7 @@ impl<'a> Model<'a> {
         }
     }
 
-    pub fn page_len(&self) -> u16 {
-        self.terminal_size.height.saturating_sub(2)
-    }
+    pub fn page_len(&self) -> u16 { self.terminal_size.height.saturating_sub(2) }
 
     fn save_settings(&mut self) {
         self.last_action_result = match self.props.save() {
@@ -435,8 +460,10 @@ impl<'a> Model<'a> {
         };
     }
 
-
-    fn find_next(&mut self, skip_current_line: bool) {
+    fn find_next(
+        &mut self,
+        skip_current_line: bool,
+    ) {
         let mut find_task = self.find_task.clone().expect("find task should be set");
         if find_task.found.is_none() {
             find_task.found = Some(false);
@@ -445,7 +472,11 @@ impl<'a> Model<'a> {
         match self.active_screen {
             Screen::Done => (),
             Screen::Main => {
-                let mut start_line_num = self.view_state.main_window_list_state.selected().unwrap_or(self.view_state.main_window_list_state.offset());
+                let mut start_line_num = self
+                    .view_state
+                    .main_window_list_state
+                    .selected()
+                    .unwrap_or(self.view_state.main_window_list_state.offset());
                 if skip_current_line {
                     start_line_num += 1
                 }
@@ -453,12 +484,16 @@ impl<'a> Model<'a> {
                     if line.content.contains(&find_task.search_string) {
                         find_task.found = Some(true);
                         self.view_state.main_window_list_state.select(Some(start_line_num + idx));
-                        break
+                        break;
                     }
                 }
             }
             Screen::ObjectDetails => {
-                let mut start_line_num = self.view_state.object_detail_list_state.selected().unwrap_or(self.view_state.object_detail_list_state.offset());
+                let mut start_line_num = self
+                    .view_state
+                    .object_detail_list_state
+                    .selected()
+                    .unwrap_or(self.view_state.object_detail_list_state.offset());
                 if skip_current_line {
                     start_line_num += 1
                 }
@@ -488,7 +523,11 @@ impl<'a> Model<'a> {
         match self.active_screen {
             Screen::Done => {}
             Screen::Main => {
-                let start_line_num = self.view_state.main_window_list_state.selected().unwrap_or(self.view_state.main_window_list_state.offset());
+                let start_line_num = self
+                    .view_state
+                    .main_window_list_state
+                    .selected()
+                    .unwrap_or(self.view_state.main_window_list_state.offset());
                 for (idx, line) in self.raw_json_lines.lines[..start_line_num].iter().rev().enumerate() {
                     if line.content.contains(&find_task.search_string) {
                         find_task.found = Some(true);
@@ -498,7 +537,11 @@ impl<'a> Model<'a> {
                 }
             }
             Screen::ObjectDetails => {
-                let start_line_num = self.view_state.object_detail_list_state.selected().unwrap_or(self.view_state.object_detail_list_state.offset());
+                let start_line_num = self
+                    .view_state
+                    .object_detail_list_state
+                    .selected()
+                    .unwrap_or(self.view_state.object_detail_list_state.offset());
                 let (lines, field_names) = self.produce_line_details_screen_content();
                 for (idx, line) in lines[..start_line_num].iter().rev().enumerate() {
                     if line.contains(&find_task.search_string) {
@@ -513,6 +556,10 @@ impl<'a> Model<'a> {
             Screen::ValueDetails => {}
         }
         self.find_task = Some(find_task);
+    }
+
+    fn find_matches_style() -> Style {
+        Style::new().on_yellow()
     }
 }
 
@@ -538,9 +585,7 @@ impl<'a> IntoIterator for &'a Model<'a> {
     type Item = ListItem<'a>;
     type IntoIter = ModelIntoIter<'a>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        ModelIntoIter { model: self, index: 0 }
-    }
+    fn into_iter(self) -> Self::IntoIter { ModelIntoIter { model: self, index: 0 } }
 }
 
 impl<'a> Iterator for ModelIntoIter<'a> {
@@ -558,9 +603,7 @@ impl<'a> Iterator for ModelIntoIter<'a> {
         Some(ListItem::new(line))
     }
 
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, Some(self.model.raw_json_lines.lines.len() - self.index))
-    }
+    fn size_hint(&self) -> (usize, Option<usize>) { (0, Some(self.model.raw_json_lines.lines.len() - self.index)) }
 
     fn advance_by(
         &mut self,
