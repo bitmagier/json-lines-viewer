@@ -1,4 +1,3 @@
-#![feature(iter_advance_by)]
 mod event;
 mod model;
 mod props;
@@ -104,11 +103,7 @@ fn load_files(files: &[PathBuf]) -> anyhow::Result<RawJsonLines> {
     let mut raw_lines = RawJsonLines::default();
 
     for path in files {
-        match path.extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.to_ascii_lowercase())
-            .as_deref()
-        {
+        match path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref() {
             Some("json") => load_lines_from_json(&mut raw_lines, path).with_context(|| format!("failed to load lines from {path:?}"))?,
             Some("zip") => load_lines_from_zip(&mut raw_lines, path).with_context(|| format!("failed to load lines from {path:?}"))?,
             _ => eprintln!("unknown file extension: '{}'", path.to_string_lossy()),

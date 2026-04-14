@@ -10,9 +10,7 @@ pub struct Props {
 }
 
 impl Props {
-    pub fn config_file_path() -> Option<PathBuf> {
-        dirs::config_dir().map(|e| e.join("json-lines-viewer.toml"))
-    }
+    pub fn config_file_path() -> Option<PathBuf> { dirs::config_dir().map(|e| e.join("json-lines-viewer.toml")) }
 
     pub fn init() -> anyhow::Result<Props> {
         let Some(f) = &Self::config_file_path().filter(|f| f.exists()) else {
@@ -29,7 +27,7 @@ impl Props {
         let f = Self::config_file_path().context("Config dir not found")?;
         let toml = toml::to_string_pretty(self)?;
 
-        std::fs::write(&f, toml)?;
+        fs::write(&f, toml)?;
 
         Ok(())
     }

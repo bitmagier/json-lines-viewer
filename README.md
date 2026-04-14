@@ -2,13 +2,13 @@ JSON Lines Viewer
 ---
 Terminal-UI to view JSON line files (especially application logs) or Zip files containing such files
 
-_The main use case here is to support the analysis of comprehensive application logs in 'JSON line' format. This is not a general purpose JSON viewer._
+_The main use case here is to support the analysis of comprehensive application logs in 'JSON line' format. This is NOT a general purpose JSON viewer (like `jless`)._
 
 ## Install
 
 ### Rust developer way (compile on machine):
 - Install Rust => see https://www.rust-lang.org/tools/install
-- `cargo +nightly install json-lines-viewer`
+- `cargo install json-lines-viewer`
 
 ### User way:
 Download precompiled binary for your platform from GitHub.
@@ -44,7 +44,7 @@ Program Navigation:
 ```
 
 ### Example
-```
+```sh
 json-lines-viewer --field-order @timestamp,level,application_id,message,application_version,host_ipv4 logs-export-xxxxx.zip
 ```
 

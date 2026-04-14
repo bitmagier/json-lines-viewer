@@ -1,17 +1,14 @@
 use crate::model::{Model, ModelViewState, Screen};
+use ratatui::backend::{Backend, CrosstermBackend};
+use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
+use ratatui::crossterm::ExecutableCommand;
 use ratatui::layout::Position;
 use ratatui::prelude::{Line, Rect, Style};
 use ratatui::widgets::{Block, List, ListState, Paragraph, Wrap};
-use ratatui::{
-    backend::{Backend, CrosstermBackend}, crossterm::{
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-        ExecutableCommand,
-    },
-    Frame,
-    Terminal,
-};
+use ratatui::{Frame, Terminal};
 use serde_json::Value;
-use std::{cmp, io::stdout, panic};
+use std::io::stdout;
+use std::{cmp, panic};
 
 pub fn init_terminal() -> anyhow::Result<Terminal<impl Backend>> {
     enable_raw_mode()?;
@@ -49,7 +46,8 @@ pub fn view(
         Screen::Done => (),
         Screen::Main => render_main_screen(model, &mut view_state.main_window_list_state, frame),
         Screen::ObjectDetails => {
-            view_state.selected_object_detail_field_name = render_line_details_screen(model, &mut view_state.object_detail_list_state, frame)
+            view_state.selected_object_detail_field_name =
+                render_line_details_screen(model, &mut view_state.object_detail_list_state, frame)
         }
         Screen::ValueDetails => render_value_details_screen(model, &mut view_state.value_screen_vertical_scroll_offset, frame),
     }
@@ -59,19 +57,25 @@ pub fn view(
 
 /// Creates the screen border common to all screens.
 /// Returns the Border block and the Cursor position (if there is one)
-fn produce_screen_border<'a>(frame_area: Rect, model: &'a Model) -> (Block<'a>, Option<Position>) {
+fn produce_screen_border<'a>(
+    frame_area: Rect,
+    model: &'a Model,
+) -> (Block<'a>, Option<Position>) {
     if model.has_find_task() {
         let find_line = model.render_find_task_line_left();
         let cursor_position = Some(Position::new((1 + find_line.width() - 4) as u16, frame_area.bottom() - 1));
-        (Block::bordered()
-             .title_bottom(find_line.left_aligned())
-             .title_bottom(model.render_find_task_line_right().right_aligned()),
-         cursor_position)
+        (
+            Block::bordered()
+                .title_bottom(find_line.left_aligned())
+                .title_bottom(model.render_find_task_line_right().right_aligned()),
+            cursor_position,
+        )
     } else {
-        (Block::bordered()
-             .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
-             .title_bottom(Line::from(model.render_status_line_right()).right_aligned()),
-         None
+        (
+            Block::bordered()
+                .title_bottom(Line::from(model.render_status_line_left()).left_aligned())
+                .title_bottom(Line::from(model.render_status_line_right()).right_aligned()),
+            None,
         )
     }
 }
@@ -101,8 +105,7 @@ fn render_line_details_screen(
 ) -> Option<String> {
     let (block, cursor_position) = produce_screen_border(frame.area(), model);
     let (list_items, keys_in_rendered_order) = model.produce_line_details_screen_content();
-    let list_items = list_items.into_iter()
-        .map(|e| Line::from(model.with_search_hits_marked(e)));
+    let list_items = list_items.into_iter().map(|e| Line::from(model.with_search_hits_marked(e)));
     let json_field_list = List::new(list_items)
         .block(block)
         .highlight_style(Style::new().underlined())
@@ -119,9 +122,17 @@ fn render_value_details_screen(
     vertical_scroll_offset: &mut u16,
     frame: &mut Frame,
 ) {
-    let line_idx = model.view_state.main_window_list_state.selected().expect("we should find a a selected line");
+    let line_idx = model
+        .view_state
+        .main_window_list_state
+        .selected()
+        .expect("we should find a a selected line");
     let raw_line = &model.raw_json_lines.lines[line_idx].content;
-    let field_name = model.view_state.selected_object_detail_field_name.as_ref().expect("should have a selected field");
+    let field_name = model
+        .view_state
+        .selected_object_detail_field_name
+        .as_ref()
+        .expect("should have a selected field");
 
     let value = raw_line.parse::<serde_json::Value>().expect("invalid json");
     let Value::Object(o) = value else {
@@ -131,7 +142,7 @@ fn render_value_details_screen(
     let field_value = o.get(field_name).expect("key should exist");
     let text = match field_value {
         Value::String(s) => s.clone(),
-        _ => format!("{field_value}")
+        _ => format!("{field_value}"),
     };
 
     // correct scroll line offset – so that current text lines are always on the screen

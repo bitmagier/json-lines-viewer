@@ -8,9 +8,7 @@ pub struct RawJsonLines {
 }
 
 impl RawJsonLines {
-    pub fn is_empty(&self) -> bool {
-        self.lines.is_empty()
-    }
+    pub fn is_empty(&self) -> bool { self.lines.is_empty() }
 
     pub fn push(
         &mut self,
@@ -71,7 +69,10 @@ pub struct RawJsonLine {
 
 impl RawJsonLine {
     /// returns JSON object lines and keys in rendered order
-    pub fn produce_rendered_fields_as_list(&self, key_order: &[String]) -> (Vec<String>, Vec<String>) {
+    pub fn produce_rendered_fields_as_list(
+        &self,
+        key_order: &[String],
+    ) -> (Vec<String>, Vec<String>) {
         let value = serde_json::from_str(&self.content).expect("not a json value");
 
         let serde_json::Value::Object(o) = value else {
@@ -90,7 +91,10 @@ impl RawJsonLine {
         (list_items, keys_in_rendered_order)
     }
 
-    fn render_attribute(key: &str, value: &serde_json::Value) -> String {
+    fn render_attribute(
+        key: &str,
+        value: &serde_json::Value,
+    ) -> String {
         format!("{key} : {value}")
     }
 }

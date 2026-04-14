@@ -6,7 +6,6 @@ use ratatui::text::ToSpan;
 use ratatui::widgets::{ListItem, ListState};
 use std::cell::Cell;
 use std::cmp;
-use std::num::NonZero;
 use std::ops::Add;
 
 #[derive(Clone)]
@@ -325,14 +324,16 @@ impl<'a> Model<'a> {
         &self,
         text: String,
     ) -> Vec<Span<'b>> {
-        if let Some(t) = self.find_task.as_ref() && !t.search_string.is_empty(){
+        if let Some(t) = self.find_task.as_ref()
+            && !t.search_string.is_empty()
+        {
             let mut i = 0;
             let mut spans = vec![];
 
             while let Some(hit) = text[i..].find(&t.search_string) {
-                spans.push(Span::from(text[i..i+hit].to_string()));
-                spans.push(Span::from(text[i+hit..i+hit+t.search_string.len()].to_string()).set_style(Self::find_matches_style()));
-                i = i+hit+t.search_string.len();
+                spans.push(Span::from(text[i..i + hit].to_string()));
+                spans.push(Span::from(text[i + hit..i + hit + t.search_string.len()].to_string()).set_style(Self::find_matches_style()));
+                i = i + hit + t.search_string.len();
             }
 
             if i < text.len() {
@@ -415,7 +416,7 @@ impl<'a> Model<'a> {
 
     pub fn render_status_line_right(&self) -> String { self.last_action_result.clone() }
 
-    pub fn render_find_task_line_left(&self) -> Line {
+    pub fn render_find_task_line_left(&self) -> Line<'_> {
         let Some(task) = &self.find_task else {
             return "".into();
         };
@@ -436,7 +437,7 @@ impl<'a> Model<'a> {
             .to_owned()
     }
 
-    pub fn render_find_task_line_right(&self) -> Line {
+    pub fn render_find_task_line_right(&self) -> Line<'_> {
         let Some(task) = &self.find_task else {
             return "".into();
         };
@@ -558,27 +559,12 @@ impl<'a> Model<'a> {
         self.find_task = Some(find_task);
     }
 
-    fn find_matches_style() -> Style {
-        Style::new().on_yellow()
-    }
+    fn find_matches_style() -> Style { Style::new().on_yellow() }
 }
 
 pub struct ModelIntoIter<'a> {
     model: &'a Model<'a>,
     index: usize,
-}
-
-impl ModelIntoIter<'_> {
-    // light version of Self::next() that simply skips the item.
-    // returns true if the item was skipped, false if there are no more items
-    fn skip_item(&mut self) -> bool {
-        if self.index >= self.model.raw_json_lines.lines.len() {
-            false
-        } else {
-            self.index += 1;
-            true
-        }
-    }
 }
 
 impl<'a> IntoIterator for &'a Model<'a> {
@@ -604,17 +590,4 @@ impl<'a> Iterator for ModelIntoIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) { (0, Some(self.model.raw_json_lines.lines.len() - self.index)) }
-
-    fn advance_by(
-        &mut self,
-        n: usize,
-    ) -> Result<(), NonZero<usize>> {
-        for i in 0..n {
-            match self.skip_item() {
-                true => (),
-                false => return Err(NonZero::new(n - i).unwrap()),
-            }
-        }
-        Ok(())
-    }
 }
