@@ -19,7 +19,7 @@ jobs:
             archive_type: tar.xz
             archive_platform_name: x86_64_linux
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.5
         env:
